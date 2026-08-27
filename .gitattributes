@@ -1,0 +1,4 @@
+WebGL_NoCompression/Build/*.data filter=lfs diff=lfs merge=lfs -text
+WebGL_NoCompression/Build/*.wasm filter=lfs diff=lfs merge=lfs -text
+WebGL_NoCompression/StreamingAssets/Videos/*.mp4 filter=lfs diff=lfs merge=lfs -text
+WebGL_NoCompression/StreamingAssets/aa/WebGL/*.bundle filter=lfs diff=lfs merge=lfs -text
