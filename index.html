@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Digital Twin</title>
+    </head>
+    <style>
+        html, body { height: 100%; }
+        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: system-ui, sans-serif; }
+        #instructions {
+            position: fixed;
+            inset: 50% auto auto 50%;
+            z-index: 4;
+            transform: translate(-50%, -50%);
+            padding: 1.2rem 1.5rem;
+            color: #fff;
+            text-align: center;
+            background: rgb(10 20 30 / 82%);
+            border: 1px solid rgb(255 255 255 / 28%);
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        #instructions strong { display: block; margin-bottom: .45rem; font-size: 1.15rem; }
+        #instructions span { font-size: .9rem; opacity: .82; }
+        #crosshair {
+            position: fixed;
+            inset: 50% auto auto 50%;
+            z-index: 1;
+            width: 8px;
+            height: 8px;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgb(255 255 255 / 85%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        #game-screen {
+            position: fixed;
+            z-index: 3;
+            display: none;
+            border: 0;
+            background: #050505;
+            box-shadow: 0 12px 35px rgb(0 0 0 / 45%);
+            aspect-ratio: 360 / 640;
+            transform-origin: center;
+            pointer-events: none;
+            display: block;
+        }
+        #screen-prompt {
+            position: fixed;
+            left: 50%;
+            bottom: 8%;
+            z-index: 4;
+            display: none;
+            transform: translateX(-50%);
+            padding: .65rem 1rem;
+            color: #fff;
+            background: rgb(10 20 30 / 85%);
+            border-radius: 6px;
+            pointer-events: none;
+        }
+    </style>
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/GLTFLoader.js';
+        import { VRButton } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/VRButton.js';
+        import Stats from 'https://cdn.jsdelivr.net/npm/stats.js@0.17.0/src/Stats.js';
+
+        let room;
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        document.body.appendChild(VRButton.createButton(renderer));
+
+        const instructions = document.createElement('div');
+        instructions.id = 'instructions';
+        const smiley = String.fromCodePoint(0x1F600); 
+        instructions.innerHTML = `<strong>Click here to explore ${smiley}</strong><span>WASD to walk · Mouse to look · E near a doorway to play</span>`;
+        document.body.appendChild(instructions);
+        const crosshair = document.createElement('div');
+        crosshair.id = 'crosshair';
+        document.body.appendChild(crosshair);
+        const gameIframe = document.createElement('iframe');
+        gameIframe.id = 'game-screen';
+        gameIframe.title = 'Dumb Rock Game';
+        const gameSource = './RocGame/index.html';
+        gameIframe.src = 'about:blank';
+        gameIframe.allow = 'fullscreen; autoplay; gamepad';
+        gameIframe.allowFullscreen = true;
+        document.body.appendChild(gameIframe);
+        const screenPrompt = document.createElement('div');
+        screenPrompt.id = 'screen-prompt';
+        screenPrompt.textContent = 'Press E to play Dumb Rock Game';
+        document.body.appendChild(screenPrompt);
+
+        const screen = new THREE.Group();
+        const screenWidth = 2.25;
+        const screenHeight = 4;
+        const gameAspect = 360 / 640;
+        let gameActive = false;
+        let gameLoaded = false;
+        const screenFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
+            new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
+        );
+        const screenSurface = new THREE.Mesh(
+            new THREE.PlaneGeometry(screenWidth, screenHeight),
+            new THREE.MeshBasicMaterial({ color: 0x050505 })
+        );
+        screenSurface.position.z = 0.1;
+        screen.add(screenFrame, screenSurface);
+        screen.rotation.y = Math.PI;
+        scene.add(screen);
+
+        const focus = {
+            active: false,
+            progress: 1,
+            startPosition: new THREE.Vector3(),
+            startQuaternion: new THREE.Quaternion(),
+            targetPosition: new THREE.Vector3(),
+            targetQuaternion: new THREE.Quaternion()
+        };
+
+        function focusCameraOnScreen() {
+            if (!screen.visible) return;
+
+            screen.updateMatrixWorld(true);
+            const center = screenSurface.getWorldPosition(new THREE.Vector3());
+            const normal = screenSurface.localToWorld(new THREE.Vector3(0, 0, 1)).sub(center).normalize();
+            if (normal.dot(camera.position.clone().sub(center)) < 0) normal.negate();
+
+            const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+            const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+            const verticalDistance = (screenHeight / 2) / Math.tan(verticalFov / 2);
+            const horizontalDistance = (screenWidth / 2) / Math.tan(horizontalFov / 2);
+            const distance = Math.max(verticalDistance, horizontalDistance) * 1.12;
+
+            focus.startPosition.copy(camera.position);
+            focus.startQuaternion.copy(camera.quaternion);
+            focus.targetPosition.copy(center).addScaledVector(normal, distance);
+
+            const focusedCamera = camera.clone();
+            focusedCamera.position.copy(focus.targetPosition);
+            focusedCamera.lookAt(center);
+            focus.targetQuaternion.copy(focusedCamera.quaternion);
+            focus.progress = 0;
+            focus.active = true;
+            gameActive = false;
+            gameIframe.style.display = 'none';
+            if (!gameLoaded) {
+                gameIframe.src = gameSource;
+                gameLoaded = true;
+            }
+            controls.unlock();
+        }
+
+        function updateCameraFocus(delta) {
+            if (!focus.active) return;
+
+            focus.progress = Math.min(focus.progress + delta * 3, 1);
+            const eased = 1 - Math.pow(1 - focus.progress, 3);
+            camera.position.lerpVectors(focus.startPosition, focus.targetPosition, eased);
+            camera.quaternion.copy(focus.startQuaternion).slerp(focus.targetQuaternion, eased);
+            if (focus.progress >= 1) {
+                focus.active = false;
+                gameActive = true;
+                gameIframe.style.pointerEvents = 'auto';
+                resizeGameWindow();
+                gameIframe.focus();
+            }
+        }
+
+        function updateGameScreen() {
+            gameIframe.style.display = gameActive ? 'block' : 'none';
+            gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+            screenPrompt.style.display = !gameActive && canUseScreen() ? 'block' : 'none';
+        }
+
+        function resizeGameWindow() {
+            const scale = Math.min((window.innerWidth * 0.78) / 360, (window.innerHeight * 0.88) / 640);
+            const width = 360 * scale;
+            const height = 640 * scale;
+            gameIframe.style.left = `${(window.innerWidth - width) / 2}px`;
+            gameIframe.style.top = `${(window.innerHeight - height) / 2}px`;
+            gameIframe.style.width = `${width}px`;
+            gameIframe.style.height = `${height}px`;
+        }
+
+        function canUseScreen() {
+            if (!room || focus.active || gameActive) return false;
+            const center = screenSurface.getWorldPosition(new THREE.Vector3());
+            if (camera.position.distanceTo(center) > 8) return false;
+            const viewRay = new THREE.Raycaster();
+            viewRay.setFromCamera(new THREE.Vector2(0, 0), camera);
+            return viewRay.intersectObject(screenFrame, false).length > 0;
+        }
+
+        function closeGame() {
+            gameActive = false;
+            gameIframe.style.display = 'none';
+            gameIframe.style.pointerEvents = 'none';
+            gameIframe.src = 'about:blank';
+            gameLoaded = false;
+        }
+
+        const controls = {
+            isLocked: false,
+            lock() { renderer.domElement.requestPointerLock(); },
+            unlock() { document.exitPointerLock(); }
+        };
+        camera.rotation.order = 'YXZ';
+        instructions.addEventListener('click', () => controls.lock());
+        document.addEventListener('pointerlockchange', () => {
+            controls.isLocked = document.pointerLockElement === renderer.domElement;
+            instructions.style.display = 'none';
+            gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+        });
+        renderer.domElement.addEventListener('click', () => {
+            if (gameActive) {
+                closeGame();
+            } else if (!controls.isLocked) {
+                controls.lock();
+            }
+        });
+        document.addEventListener('mousemove', (event) => {
+            if (!controls.isLocked) return;
+            camera.rotation.y -= event.movementX * 0.002;
+            camera.rotation.x -= event.movementY * 0.002;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        });
+
+        const player = {
+            height: 1.7,
+            radius: 0.32,
+            speed: 4.5,
+            eyeHeight: 1.55,
+            velocity: new THREE.Vector3(),
+            onFloor: false,
+            spawn: new THREE.Vector3(0, 1.55, 0)
+        };
+        const collisionMeshes = [];
+        const raycaster = new THREE.Raycaster();
+        const keys = new Set();
+        const clock = new THREE.Clock();
+
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'KeyE' && canUseScreen()) {
+                event.preventDefault();
+                focusCameraOnScreen();
+                return;
+            }
+            keys.add(event.code);
+            if (event.code === 'Space' && player.onFloor) player.velocity.y = 5;
+        });
+        document.addEventListener('keyup', (event) => keys.delete(event.code));
+
+        function horizontalBlocked(position, direction, distance) {
+            const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+            const offsets = [-player.radius * 0.8, 0, player.radius * 0.8];
+            const heights = [0.12, player.eyeHeight, player.height - 0.12];
+
+            for (const offset of offsets) {
+                for (const height of heights) {
+                    const origin = new THREE.Vector3(position.x, position.y - player.eyeHeight + height, position.z)
+                        .addScaledVector(perpendicular, offset);
+                    raycaster.set(origin, direction);
+                    raycaster.far = distance + 0.05;
+                    if (raycaster.intersectObjects(collisionMeshes, false).length > 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function floorHeight(position) {
+            const origin = new THREE.Vector3(position.x, position.y + 0.2, position.z);
+            raycaster.set(origin, new THREE.Vector3(0, -1, 0));
+            raycaster.far = player.eyeHeight + 0.4;
+            const hit = raycaster.intersectObjects(collisionMeshes, false)[0];
+            return hit ? hit.point.y : null;
+        }
+
+        function movePlayer(delta) {
+            if (!controls.isLocked) return;
+
+            const direction = new THREE.Vector3(
+                Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
+                0,
+                Number(keys.has('KeyS')) - Number(keys.has('KeyW'))
+            );
+            if (direction.lengthSq() > 0) direction.normalize();
+            direction.applyQuaternion(camera.quaternion);
+            direction.y = 0;
+            if (direction.lengthSq() > 0) direction.normalize();
+
+            player.velocity.x = direction.x * player.speed;
+            player.velocity.z = direction.z * player.speed;
+            player.velocity.y -= 9.8 * delta;
+
+            const position = camera.position;
+            const horizontalMove = new THREE.Vector3(player.velocity.x * delta, 0, player.velocity.z * delta);
+            const horizontalDistance = horizontalMove.length();
+            if (horizontalDistance > 0) {
+                const horizontalDirection = horizontalMove.clone().normalize();
+                if (!horizontalBlocked(position, horizontalDirection, horizontalDistance + player.radius)) {
+                    position.add(horizontalMove);
+                }
+            }
+
+            const ground = floorHeight(position);
+            const nextY = position.y + player.velocity.y * delta;
+            if (ground !== null && player.velocity.y <= 0 && nextY - player.eyeHeight <= ground + 0.08) {
+                position.y = ground + player.eyeHeight;
+                player.onFloor = true;
+                player.velocity.y = 0;
+            } else {
+                position.y = nextY;
+                player.onFloor = false;
+            }
+
+            if (position.y < -20) position.copy(player.spawn);
+        }
+
+        // FPS meter
+        const stats = new Stats();
+        stats.showPanel(0);
+        document.body.appendChild(stats.dom);
+
+
+        // make bg white
+        // sky blue
+         renderer.setClearColor(0x87ceeb, 1);
+
+        // Load the room and build world-space AABB colliders from its meshes.
+        const loader = new GLTFLoader();
+        loader.load('./white_round_exhibition_gallery.glb', (gltf) => {
+            room = gltf.scene;
+            const sourceBounds = new THREE.Box3().setFromObject(gltf.scene);
+            const sourceSize = sourceBounds.getSize(new THREE.Vector3());
+            const sourceWidth = Math.max(sourceSize.x, sourceSize.z);
+            const roomScale = sourceWidth > 0 ? Math.min(5, 30 / sourceWidth) : 1;
+            gltf.scene.scale.setScalar(roomScale);
+            gltf.scene.updateMatrixWorld(true);
+            gltf.scene.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    collisionMeshes.push(child);
+                }
+            });
+            scene.add(gltf.scene);
+
+            // set wall color to red (Wall_0_grp is a group, so apply to its meshes)
+            const wall = room.getObjectByName('Wall_0_grp');
+            if (wall?.children[0]?.isMesh) {
+                wall.children[0].material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            }
+
+            const roomBounds = new THREE.Box3().setFromObject(gltf.scene);
+            const roomCenter = roomBounds.getCenter(new THREE.Vector3());
+            player.spawn.set(roomCenter.x, roomBounds.min.y + player.eyeHeight + 0.08, roomCenter.z);
+            camera.position.copy(player.spawn);
+            const roomHeight = roomBounds.max.y - roomBounds.min.y;
+            screen.position.set(0, 0, 15);
+        });
+
+
+        // soft sky/ground ambient fill
+        const hemiLight = new THREE.HemisphereLight(0xbdd7ff, 0x444433, 1.2);
+        scene.add(hemiLight);
+
+        // gentle overall fill so shadows aren't pure black
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+        // key light (sun) with soft shadows
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        directionalLight.position.set(5, 10, 7);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.set(2048, 2048);
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.left = -15;
+        directionalLight.shadow.camera.right = 15;
+        directionalLight.shadow.camera.top = 15;
+        directionalLight.shadow.camera.bottom = -15;
+        directionalLight.shadow.bias = -0.0005;
+        scene.add(directionalLight);
+
+        renderer.setAnimationLoop(function () {
+            const delta = Math.min(clock.getDelta(), 0.05);
+            updateCameraFocus(delta);
+            movePlayer(delta);
+            updateGameScreen();
+            stats.begin();
+            renderer.render(scene, camera);
+            stats.end();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            if (gameActive) resizeGameWindow();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+    <body>
+    </body>
+</html>
