@@ -101,16 +101,19 @@
         document.body.appendChild(screenPrompt);
 
         const portalConfigs = [
-            { id: 'north', title: 'Necross', source: './Necross/index.html', width: 1366, height: 768, position: [0, 2.5, -14.85], rotation: 0 },
-            { id: 'south', title: 'Dumb Rock Game', source: './RocGame/index.html', width: 360, height: 640, position: [0, 2.5, 14.85], rotation: Math.PI },
-            { id: 'east', title: 'The Haunt of Suraxu', source: './THOS/index.html', width: 1366, height: 768, position: [14.85, 2.5, 0], rotation: -Math.PI / 2 },
-            { id: 'west', title: 'Scoop Scoop Icecream Shop', source: './ScoopScoop/index.html', width: 360, height: 640, position: [-14.85, 2.5, 0], rotation: Math.PI / 2 }
+            { id: 'north', title: 'Necross', source: './Necross/index.html', thumbnail: './Necross/Thumbnail.png', width: 1366, height: 768, rotation: 0 },
+            { id: 'south', title: 'Dumb Rock Game', source: './RocGame/index.html', thumbnail: './RocGame/Thumbnail.png', width: 360, height: 640, rotation: Math.PI },
+            { id: 'east', title: 'The Haunt of Suraxu', source: './THOS/index.html', thumbnail: './THOS/Thumbnail.png', width: 1366, height: 768, rotation: -Math.PI / 2 },
+            { id: 'west', title: 'Scoop Scoop Icecream Shop', source: './ScoopScoop/index.html', thumbnail: './ScoopScoop/Thumbnail.png', width: 360, height: 640, rotation: Math.PI / 2 }
         ];
         const screenHeight = 3.2;
+        const signWidth = 3.2;
+        const signHeight = signWidth * 500 / 630;
         const screens = [];
         let activePortal;
         let gameActive = false;
         let gameLoaded = false;
+        const textureLoader = new THREE.TextureLoader();
         for (const config of portalConfigs) {
             const screenWidth = screenHeight * config.width / config.height;
             const screen = new THREE.Group();
@@ -124,7 +127,16 @@
             );
             screenSurface.position.z = 0.1;
             screen.add(screenFrame, screenSurface);
-            screen.position.set(...config.position);
+
+            const signMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: true, side: THREE.DoubleSide });
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(signWidth, signHeight), signMaterial);
+            sign.position.set(0, screenHeight / 2 + signHeight / 2 + 0.35, 0.45);
+            textureLoader.load(config.thumbnail, (texture) => {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                signMaterial.map = texture;
+                signMaterial.needsUpdate = true;
+            });
+            screen.add(sign);
             screen.rotation.y = config.rotation;
             scene.add(screen);
             screens.push({ config, screen, screenFrame, screenSurface, width: screenWidth });
@@ -140,7 +152,11 @@
         };
 
         function getUsableScreen() {
-            return screens.find((entry) => canUseScreen(entry));
+            if (!room || focus.active || gameActive) return null;
+            return screens
+                .map((entry) => ({ entry, distance: camera.position.distanceTo(entry.screenSurface.getWorldPosition(new THREE.Vector3())) }))
+                .filter(({ distance }) => distance <= 8)
+                .sort((first, second) => first.distance - second.distance)[0]?.entry || null;
         }
 
         function focusCameraOnScreen(entry) {
@@ -198,7 +214,9 @@
         function updateGameScreen() {
             gameIframe.style.display = gameActive ? 'block' : 'none';
             gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
-            screenPrompt.style.display = !gameActive && getUsableScreen() ? 'block' : 'none';
+            const nearbyScreen = getUsableScreen();
+            screenPrompt.textContent = nearbyScreen ? `Press E to play ${nearbyScreen.config.title}` : '';
+            screenPrompt.style.display = !gameActive && nearbyScreen ? 'block' : 'none';
         }
 
         function resizeGameWindow() {
@@ -222,6 +240,20 @@
             return viewRay.intersectObject(entry.screenFrame, false).length > 0;
         }
 
+        function placePortals(bounds) {
+            const center = bounds.getCenter(new THREE.Vector3());
+            const floor = bounds.min.y;
+            const wallOffset = 0.18;
+            const portalY = floor + screenHeight / 2 + 0.08;
+            const placements = {
+                north: [center.x, portalY, bounds.min.z + wallOffset],
+                south: [center.x, portalY, bounds.max.z - wallOffset],
+                east: [bounds.max.x - wallOffset, portalY, center.z],
+                west: [bounds.min.x + wallOffset, portalY, center.z]
+            };
+            for (const entry of screens) entry.screen.position.set(...placements[entry.config.id]);
+        }
+
         function closeGame() {
             gameActive = false;
             gameIframe.style.display = 'none';
@@ -229,6 +261,8 @@
             gameIframe.src = 'about:blank';
             gameLoaded = false;
             activePortal = null;
+            keys.clear();
+            controls.lock();
         }
 
         const controls = {
@@ -242,6 +276,7 @@
             controls.isLocked = document.pointerLockElement === renderer.domElement;
             instructions.style.display = 'none';
             gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+            if (!controls.isLocked && !gameActive && room) keys.clear();
         });
         renderer.domElement.addEventListener('click', () => {
             if (gameActive) {
@@ -402,6 +437,7 @@
             const roomCenter = roomBounds.getCenter(new THREE.Vector3());
             player.spawn.set(roomCenter.x, roomBounds.min.y + player.eyeHeight + 0.08, roomCenter.z);
             camera.position.copy(player.spawn);
+            placePortals(roomBounds);
         });
 
 
