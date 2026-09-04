@@ -92,35 +92,43 @@
         document.body.appendChild(crosshair);
         const gameIframe = document.createElement('iframe');
         gameIframe.id = 'game-screen';
-        gameIframe.title = 'Dumb Rock Game';
-        const gameSource = './RocGame/index.html';
         gameIframe.src = 'about:blank';
         gameIframe.allow = 'fullscreen; autoplay; gamepad';
         gameIframe.allowFullscreen = true;
         document.body.appendChild(gameIframe);
         const screenPrompt = document.createElement('div');
         screenPrompt.id = 'screen-prompt';
-        screenPrompt.textContent = 'Press E to play Dumb Rock Game';
         document.body.appendChild(screenPrompt);
 
-        const screen = new THREE.Group();
-        const screenWidth = 2.25;
-        const screenHeight = 4;
-        const gameAspect = 360 / 640;
+        const portalConfigs = [
+            { id: 'north', title: 'Necross', source: './Necross/index.html', width: 1366, height: 768, position: [0, 2.5, -14.85], rotation: 0 },
+            { id: 'south', title: 'Dumb Rock Game', source: './RocGame/index.html', width: 360, height: 640, position: [0, 2.5, 14.85], rotation: Math.PI },
+            { id: 'east', title: 'The Haunt of Suraxu', source: './THOS/index.html', width: 1366, height: 768, position: [14.85, 2.5, 0], rotation: -Math.PI / 2 },
+            { id: 'west', title: 'Scoop Scoop Icecream Shop', source: './ScoopScoop/index.html', width: 360, height: 640, position: [-14.85, 2.5, 0], rotation: Math.PI / 2 }
+        ];
+        const screenHeight = 3.2;
+        const screens = [];
+        let activePortal;
         let gameActive = false;
         let gameLoaded = false;
-        const screenFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
-            new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
-        );
-        const screenSurface = new THREE.Mesh(
-            new THREE.PlaneGeometry(screenWidth, screenHeight),
-            new THREE.MeshBasicMaterial({ color: 0x050505 })
-        );
-        screenSurface.position.z = 0.1;
-        screen.add(screenFrame, screenSurface);
-        screen.rotation.y = Math.PI;
-        scene.add(screen);
+        for (const config of portalConfigs) {
+            const screenWidth = screenHeight * config.width / config.height;
+            const screen = new THREE.Group();
+            const screenFrame = new THREE.Mesh(
+                new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
+                new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
+            );
+            const screenSurface = new THREE.Mesh(
+                new THREE.PlaneGeometry(screenWidth, screenHeight),
+                new THREE.MeshBasicMaterial({ color: 0x050505 })
+            );
+            screenSurface.position.z = 0.1;
+            screen.add(screenFrame, screenSurface);
+            screen.position.set(...config.position);
+            screen.rotation.y = config.rotation;
+            scene.add(screen);
+            screens.push({ config, screen, screenFrame, screenSurface, width: screenWidth });
+        }
 
         const focus = {
             active: false,
@@ -131,18 +139,22 @@
             targetQuaternion: new THREE.Quaternion()
         };
 
-        function focusCameraOnScreen() {
-            if (!screen.visible) return;
+        function getUsableScreen() {
+            return screens.find((entry) => canUseScreen(entry));
+        }
 
-            screen.updateMatrixWorld(true);
-            const center = screenSurface.getWorldPosition(new THREE.Vector3());
-            const normal = screenSurface.localToWorld(new THREE.Vector3(0, 0, 1)).sub(center).normalize();
+        function focusCameraOnScreen(entry) {
+            if (!entry) return;
+
+            entry.screen.updateMatrixWorld(true);
+            const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
+            const normal = entry.screenSurface.localToWorld(new THREE.Vector3(0, 0, 1)).sub(center).normalize();
             if (normal.dot(camera.position.clone().sub(center)) < 0) normal.negate();
 
             const verticalFov = THREE.MathUtils.degToRad(camera.fov);
             const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
             const verticalDistance = (screenHeight / 2) / Math.tan(verticalFov / 2);
-            const horizontalDistance = (screenWidth / 2) / Math.tan(horizontalFov / 2);
+            const horizontalDistance = (entry.width / 2) / Math.tan(horizontalFov / 2);
             const distance = Math.max(verticalDistance, horizontalDistance) * 1.12;
 
             focus.startPosition.copy(camera.position);
@@ -155,10 +167,13 @@
             focus.targetQuaternion.copy(focusedCamera.quaternion);
             focus.progress = 0;
             focus.active = true;
+            activePortal = entry;
             gameActive = false;
             gameIframe.style.display = 'none';
+            gameIframe.title = entry.config.title;
+            screenPrompt.textContent = `Press E to play ${entry.config.title}`;
             if (!gameLoaded) {
-                gameIframe.src = gameSource;
+                gameIframe.src = entry.config.source;
                 gameLoaded = true;
             }
             controls.unlock();
@@ -183,26 +198,28 @@
         function updateGameScreen() {
             gameIframe.style.display = gameActive ? 'block' : 'none';
             gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
-            screenPrompt.style.display = !gameActive && canUseScreen() ? 'block' : 'none';
+            screenPrompt.style.display = !gameActive && getUsableScreen() ? 'block' : 'none';
         }
 
         function resizeGameWindow() {
-            const scale = Math.min((window.innerWidth * 0.78) / 360, (window.innerHeight * 0.88) / 640);
-            const width = 360 * scale;
-            const height = 640 * scale;
+            const nativeWidth = activePortal?.config.width || 1;
+            const nativeHeight = activePortal?.config.height || 1;
+            const scale = Math.min((window.innerWidth * 0.78) / nativeWidth, (window.innerHeight * 0.88) / nativeHeight);
+            const width = nativeWidth * scale;
+            const height = nativeHeight * scale;
             gameIframe.style.left = `${(window.innerWidth - width) / 2}px`;
             gameIframe.style.top = `${(window.innerHeight - height) / 2}px`;
             gameIframe.style.width = `${width}px`;
             gameIframe.style.height = `${height}px`;
         }
 
-        function canUseScreen() {
-            if (!room || focus.active || gameActive) return false;
-            const center = screenSurface.getWorldPosition(new THREE.Vector3());
+        function canUseScreen(entry) {
+            if (!room || focus.active || gameActive || !entry) return false;
+            const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
             if (camera.position.distanceTo(center) > 8) return false;
             const viewRay = new THREE.Raycaster();
             viewRay.setFromCamera(new THREE.Vector2(0, 0), camera);
-            return viewRay.intersectObject(screenFrame, false).length > 0;
+            return viewRay.intersectObject(entry.screenFrame, false).length > 0;
         }
 
         function closeGame() {
@@ -211,6 +228,7 @@
             gameIframe.style.pointerEvents = 'none';
             gameIframe.src = 'about:blank';
             gameLoaded = false;
+            activePortal = null;
         }
 
         const controls = {
@@ -249,14 +267,16 @@
             spawn: new THREE.Vector3(0, 1.55, 0)
         };
         const collisionMeshes = [];
+        const roomBounds = new THREE.Box3();
         const raycaster = new THREE.Raycaster();
         const keys = new Set();
         const clock = new THREE.Clock();
 
         document.addEventListener('keydown', (event) => {
-            if (event.code === 'KeyE' && canUseScreen()) {
+            const usableScreen = getUsableScreen();
+            if (event.code === 'KeyE' && usableScreen) {
                 event.preventDefault();
-                focusCameraOnScreen();
+                focusCameraOnScreen(usableScreen);
                 return;
             }
             keys.add(event.code);
@@ -275,10 +295,23 @@
                         .addScaledVector(perpendicular, offset);
                     raycaster.set(origin, direction);
                     raycaster.far = distance + 0.05;
-                    if (raycaster.intersectObjects(collisionMeshes, false).length > 0) return true;
+                    const hit = raycaster.intersectObjects(collisionMeshes, false).find((intersection) => !isDoorwayOpening(intersection.point));
+                    if (hit) return true;
                 }
             }
             return false;
+        }
+
+        function isDoorwayOpening(point) {
+            if (!room) return false;
+            const doorwayWidth = 2.2;
+            const doorwayHeight = 3.5;
+            const nearNorthOrSouth = Math.min(Math.abs(point.z - roomBounds.min.z), Math.abs(point.z - roomBounds.max.z)) < 0.35;
+            const nearEastOrWest = Math.min(Math.abs(point.x - roomBounds.min.x), Math.abs(point.x - roomBounds.max.x)) < 0.35;
+            const inHeight = point.y >= roomBounds.min.y && point.y <= roomBounds.min.y + doorwayHeight;
+            const atNorthOrSouthDoor = nearNorthOrSouth && Math.abs(point.x - roomBounds.getCenter(new THREE.Vector3()).x) < doorwayWidth / 2;
+            const atEastOrWestDoor = nearEastOrWest && Math.abs(point.z - roomBounds.getCenter(new THREE.Vector3()).z) < doorwayWidth / 2;
+            return inHeight && (atNorthOrSouthDoor || atEastOrWestDoor);
         }
 
         function floorHeight(position) {
@@ -365,12 +398,10 @@
                 wall.children[0].material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
             }
 
-            const roomBounds = new THREE.Box3().setFromObject(gltf.scene);
+            roomBounds.setFromObject(gltf.scene);
             const roomCenter = roomBounds.getCenter(new THREE.Vector3());
             player.spawn.set(roomCenter.x, roomBounds.min.y + player.eyeHeight + 0.08, roomCenter.z);
             camera.position.copy(player.spawn);
-            const roomHeight = roomBounds.max.y - roomBounds.min.y;
-            screen.position.set(0, 0, 15);
         });
 
 
