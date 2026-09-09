@@ -60,6 +60,51 @@
             border-radius: 6px;
             pointer-events: none;
         }
+        #mobile-controls { display: none; }
+        @media (hover: none), (pointer: coarse) {
+            #instructions span { display: block; }
+            #mobile-controls {
+                position: fixed;
+                inset: 0;
+                z-index: 5;
+                display: block;
+                pointer-events: none;
+            }
+            #mobile-stick, #mobile-look {
+                position: absolute;
+                bottom: 1.5rem;
+                width: 7rem;
+                height: 7rem;
+                border: 1px solid rgb(255 255 255 / 35%);
+                border-radius: 50%;
+                background: rgb(10 20 30 / 22%);
+                pointer-events: auto;
+                touch-action: none;
+            }
+            #mobile-stick { left: 1.2rem; }
+            #mobile-look { right: 1.2rem; }
+            #mobile-stick::after {
+                content: '';
+                position: absolute;
+                inset: 2rem;
+                border-radius: 50%;
+                background: rgb(255 255 255 / 55%);
+            }
+            #mobile-interact {
+                position: absolute;
+                right: 1.5rem;
+                bottom: 9.5rem;
+                width: 3.5rem;
+                height: 3.5rem;
+                border: 1px solid rgb(255 255 255 / 55%);
+                border-radius: 50%;
+                color: #fff;
+                background: rgb(10 20 30 / 72%);
+                font-weight: 700;
+                pointer-events: auto;
+                touch-action: manipulation;
+            }
+        }
     </style>
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/three.module.js';
@@ -71,6 +116,7 @@
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const xrControllers = [renderer.xr.getController(0), renderer.xr.getController(1)];
 
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -85,7 +131,10 @@
         const instructions = document.createElement('div');
         instructions.id = 'instructions';
         const smiley = String.fromCodePoint(0x1F600); 
-        instructions.innerHTML = `<strong>Click here to explore ${smiley}</strong><span>WASD to walk · Mouse to look · E near a doorway to play</span>`;
+        const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+        instructions.innerHTML = coarsePointer
+            ? `<strong>Touch here to explore ${smiley}</strong><span>Left stick to walk · Right stick to look · E to play</span>`
+            : `<strong>Click here to explore ${smiley}</strong><span>WASD to walk · Mouse to look · E near a doorway to play</span>`;
         document.body.appendChild(instructions);
         const crosshair = document.createElement('div');
         crosshair.id = 'crosshair';
@@ -99,6 +148,10 @@
         const screenPrompt = document.createElement('div');
         screenPrompt.id = 'screen-prompt';
         document.body.appendChild(screenPrompt);
+        const mobileControls = document.createElement('div');
+        mobileControls.id = 'mobile-controls';
+        mobileControls.innerHTML = '<div id="mobile-stick" aria-label="Move"></div><div id="mobile-look" aria-label="Look"></div><button id="mobile-interact" type="button">E</button>';
+        document.body.appendChild(mobileControls);
 
         const portalConfigs = [
             { id: 'north', title: 'Necross', source: './Necross/index.html', thumbnail: './Necross/Thumbnail.png', width: 1366, height: 768, rotation: 0 },
@@ -113,6 +166,12 @@
         let activePortal;
         let gameActive = false;
         let gameLoaded = false;
+        let mobileActive = false;
+        const mobileMove = { x: 0, y: 0 };
+        let mobileLookId = null;
+        let mobileMoveId = null;
+        let lastLookX = 0;
+        let lastLookY = 0;
         const textureLoader = new THREE.TextureLoader();
         for (const config of portalConfigs) {
             const screenWidth = screenHeight * config.width / config.height;
@@ -262,7 +321,7 @@
             gameLoaded = false;
             activePortal = null;
             keys.clear();
-            controls.lock();
+            if (!mobileActive && !renderer.xr.isPresenting) controls.lock();
         }
 
         const controls = {
@@ -271,7 +330,23 @@
             unlock() { document.exitPointerLock(); }
         };
         camera.rotation.order = 'YXZ';
-        instructions.addEventListener('click', () => controls.lock());
+        function activateInteraction() {
+            if (gameActive) {
+                closeGame();
+                return;
+            }
+            const usableScreen = getUsableScreen();
+            if (usableScreen) focusCameraOnScreen(usableScreen);
+        }
+
+        instructions.addEventListener('click', () => {
+            if (window.matchMedia('(pointer: coarse)').matches) {
+                mobileActive = true;
+                instructions.style.display = 'none';
+            } else {
+                controls.lock();
+            }
+        });
         document.addEventListener('pointerlockchange', () => {
             controls.isLocked = document.pointerLockElement === renderer.domElement;
             instructions.style.display = 'none';
@@ -279,9 +354,8 @@
             if (!controls.isLocked && !gameActive && room) keys.clear();
         });
         renderer.domElement.addEventListener('click', () => {
-            if (gameActive) {
-                closeGame();
-            } else if (!controls.isLocked) {
+            if (gameActive) closeGame();
+            else if (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting) {
                 controls.lock();
             }
         });
@@ -290,6 +364,78 @@
             camera.rotation.y -= event.movementX * 0.002;
             camera.rotation.x -= event.movementY * 0.002;
             camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        });
+
+        const mobileStick = document.querySelector('#mobile-stick');
+        const mobileLook = document.querySelector('#mobile-look');
+        const mobileInteract = document.querySelector('#mobile-interact');
+        function updateMobileStick(event) {
+            const bounds = mobileStick.getBoundingClientRect();
+            const radius = bounds.width / 2;
+            mobileMove.x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + radius)) / radius));
+            mobileMove.y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + radius)) / radius));
+        }
+        mobileStick.addEventListener('pointerdown', (event) => {
+            mobileActive = true;
+            mobileMoveId = event.pointerId;
+            mobileStick.setPointerCapture(event.pointerId);
+            updateMobileStick(event);
+        });
+        mobileStick.addEventListener('pointermove', (event) => {
+            if (event.pointerId === mobileMoveId) updateMobileStick(event);
+        });
+        mobileStick.addEventListener('pointerup', () => {
+            mobileMoveId = null;
+            mobileMove.x = 0;
+            mobileMove.y = 0;
+        });
+        mobileStick.addEventListener('pointercancel', () => {
+            mobileMoveId = null;
+            mobileMove.x = 0;
+            mobileMove.y = 0;
+        });
+        mobileLook.addEventListener('pointerdown', (event) => {
+            mobileActive = true;
+            mobileLookId = event.pointerId;
+            lastLookX = event.clientX;
+            lastLookY = event.clientY;
+            mobileLook.setPointerCapture(event.pointerId);
+        });
+        mobileLook.addEventListener('pointermove', (event) => {
+            if (event.pointerId !== mobileLookId) return;
+            camera.rotation.y -= (event.clientX - lastLookX) * 0.006;
+            camera.rotation.x -= (event.clientY - lastLookY) * 0.006;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            lastLookX = event.clientX;
+            lastLookY = event.clientY;
+        });
+        const endMobileLook = () => { mobileLookId = null; };
+        mobileLook.addEventListener('pointerup', endMobileLook);
+        mobileLook.addEventListener('pointercancel', endMobileLook);
+        mobileInteract.addEventListener('click', activateInteraction);
+
+        function getXRGamepad(controllerIndex) {
+            return renderer.xr.getController(controllerIndex)?.inputSource?.gamepad;
+        }
+        function updateXRControls() {
+            if (!renderer.xr.isPresenting) return { x: 0, z: 0 };
+            const leftGamepad = getXRGamepad(0);
+            const rightGamepad = getXRGamepad(1);
+            if (rightGamepad) {
+                const turn = rightGamepad.axes[2] || 0;
+                const look = rightGamepad.axes[3] || 0;
+                camera.rotation.y -= turn * 0.035;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x + look * 0.02));
+            }
+            return leftGamepad ? { x: leftGamepad.axes[2] || 0, z: leftGamepad.axes[3] || 0 } : { x: 0, z: 0 };
+        }
+        xrControllers.forEach((controller) => {
+            controller.addEventListener('selectstart', activateInteraction);
+            scene.add(controller);
+        });
+        renderer.xr.addEventListener('sessionstart', () => {
+            mobileActive = false;
+            instructions.style.display = 'none';
         });
 
         const player = {
@@ -311,7 +457,7 @@
             const usableScreen = getUsableScreen();
             if (event.code === 'KeyE' && usableScreen) {
                 event.preventDefault();
-                focusCameraOnScreen(usableScreen);
+                activateInteraction();
                 return;
             }
             keys.add(event.code);
@@ -358,12 +504,16 @@
         }
 
         function movePlayer(delta) {
-            if (!controls.isLocked) return;
+            if (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting) return;
+
+            const xrMovement = updateXRControls();
+            const movementX = mobileActive ? mobileMove.x : xrMovement.x;
+            const movementZ = mobileActive ? mobileMove.y : xrMovement.z;
 
             const direction = new THREE.Vector3(
-                Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
+                (Number(keys.has('KeyD')) - Number(keys.has('KeyA'))) || movementX,
                 0,
-                Number(keys.has('KeyS')) - Number(keys.has('KeyW'))
+                (Number(keys.has('KeyS')) - Number(keys.has('KeyW'))) || movementZ
             );
             if (direction.lengthSq() > 0) direction.normalize();
             direction.applyQuaternion(camera.quaternion);
