@@ -104,6 +104,25 @@
                 pointer-events: auto;
                 touch-action: manipulation;
             }
+            #mobile-game-buttons {
+                position: absolute;
+                left: 50%;
+                bottom: 1.5rem;
+                display: none;
+                gap: .5rem;
+                transform: translateX(-50%);
+                pointer-events: auto;
+            }
+            #mobile-game-buttons button {
+                min-width: 3.5rem;
+                height: 3.5rem;
+                border: 1px solid rgb(255 255 255 / 55%);
+                border-radius: .5rem;
+                color: #fff;
+                background: rgb(10 20 30 / 72%);
+                font-weight: 700;
+                touch-action: none;
+            }
         }
     </style>
     <script type="module">
@@ -142,7 +161,7 @@
         const gameIframe = document.createElement('iframe');
         gameIframe.id = 'game-screen';
         gameIframe.src = 'about:blank';
-        gameIframe.allow = 'fullscreen; autoplay; gamepad';
+        gameIframe.allow = 'fullscreen; autoplay; gamepad; pointer-lock';
         gameIframe.allowFullscreen = true;
         document.body.appendChild(gameIframe);
         const screenPrompt = document.createElement('div');
@@ -150,7 +169,7 @@
         document.body.appendChild(screenPrompt);
         const mobileControls = document.createElement('div');
         mobileControls.id = 'mobile-controls';
-        mobileControls.innerHTML = '<div id="mobile-stick" aria-label="Move"></div><div id="mobile-look" aria-label="Look"></div><button id="mobile-interact" type="button">E</button>';
+        mobileControls.innerHTML = '<div id="mobile-stick" aria-label="Move"></div><div id="mobile-look" aria-label="Look"></div><button id="mobile-interact" type="button">E</button><div id="mobile-game-buttons"><button id="mobile-left-click" type="button">LMB</button><button id="mobile-right-click" type="button">RMB</button><button id="mobile-space" type="button">Space</button></div>';
         document.body.appendChild(mobileControls);
 
         const portalConfigs = [
@@ -172,6 +191,8 @@
         let mobileMoveId = null;
         let lastLookX = 0;
         let lastLookY = 0;
+        const pcGameIds = new Set(['north', 'east']);
+        const gameKeys = new Set();
         const textureLoader = new THREE.TextureLoader();
         for (const config of portalConfigs) {
             const screenWidth = screenHeight * config.width / config.height;
@@ -276,6 +297,8 @@
             const nearbyScreen = getUsableScreen();
             screenPrompt.textContent = nearbyScreen ? `Press E to play ${nearbyScreen.config.title}` : '';
             screenPrompt.style.display = !gameActive && nearbyScreen ? 'block' : 'none';
+            const pcGameActive = coarsePointer && gameActive && activePortal && pcGameIds.has(activePortal.config.id);
+            document.querySelector('#mobile-game-buttons').style.display = pcGameActive ? 'flex' : 'none';
         }
 
         function resizeGameWindow() {
@@ -314,6 +337,7 @@
         }
 
         function closeGame() {
+            releaseGameInputs();
             gameActive = false;
             gameIframe.style.display = 'none';
             gameIframe.style.pointerEvents = 'none';
@@ -369,11 +393,71 @@
         const mobileStick = document.querySelector('#mobile-stick');
         const mobileLook = document.querySelector('#mobile-look');
         const mobileInteract = document.querySelector('#mobile-interact');
+        const mobileGameButtons = document.querySelector('#mobile-game-buttons');
+        const mobileLeftClick = document.querySelector('#mobile-left-click');
+        const mobileRightClick = document.querySelector('#mobile-right-click');
+        const mobileSpace = document.querySelector('#mobile-space');
+        function isPCGameActive() {
+            return gameActive && activePortal && pcGameIds.has(activePortal.config.id);
+        }
+        function gameDocument() {
+            try { return gameIframe.contentDocument; } catch { return null; }
+        }
+        function sendGameKey(code, type) {
+            const target = gameDocument();
+            if (!target) return;
+            target.dispatchEvent(new KeyboardEvent(type, { code, key: code === 'Space' ? ' ' : code.replace('Key', ''), bubbles: true }));
+        }
+        function setGameKey(code, pressed) {
+            if (!isPCGameActive()) return;
+            if (pressed && !gameKeys.has(code)) {
+                gameKeys.add(code);
+                sendGameKey(code, 'keydown');
+            } else if (!pressed && gameKeys.has(code)) {
+                gameKeys.delete(code);
+                sendGameKey(code, 'keyup');
+            }
+        }
+        function updateGameMovement() {
+            if (!isPCGameActive()) return;
+            setGameKey('KeyA', mobileMove.x < -0.25);
+            setGameKey('KeyD', mobileMove.x > 0.25);
+            setGameKey('KeyW', mobileMove.y < -0.25);
+            setGameKey('KeyS', mobileMove.y > 0.25);
+        }
+        function releaseGameInputs() {
+            for (const code of gameKeys) sendGameKey(code, 'keyup');
+            gameKeys.clear();
+        }
+        function sendGameMouse(button, type, movementX = 0, movementY = 0) {
+            const target = gameDocument();
+            if (!target) return;
+            const canvas = target.querySelector('#unity-canvas') || target.body;
+            canvas.dispatchEvent(new MouseEvent(type, { button, buttons: type === 'mouseup' ? 0 : 1 << button, movementX, movementY, bubbles: true }));
+        }
+        function bindGameButton(button, mouseButton) {
+            button.addEventListener('pointerdown', (event) => {
+                event.preventDefault();
+                if (isPCGameActive()) sendGameMouse(mouseButton, 'mousedown');
+            });
+            const release = (event) => {
+                event.preventDefault();
+                if (isPCGameActive()) sendGameMouse(mouseButton, 'mouseup');
+            };
+            button.addEventListener('pointerup', release);
+            button.addEventListener('pointercancel', release);
+        }
+        bindGameButton(mobileLeftClick, 0);
+        bindGameButton(mobileRightClick, 2);
+        mobileSpace.addEventListener('pointerdown', (event) => { event.preventDefault(); setGameKey('Space', true); });
+        mobileSpace.addEventListener('pointerup', (event) => { event.preventDefault(); setGameKey('Space', false); });
+        mobileSpace.addEventListener('pointercancel', (event) => { event.preventDefault(); setGameKey('Space', false); });
         function updateMobileStick(event) {
             const bounds = mobileStick.getBoundingClientRect();
             const radius = bounds.width / 2;
             mobileMove.x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + radius)) / radius));
             mobileMove.y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + radius)) / radius));
+            updateGameMovement();
         }
         mobileStick.addEventListener('pointerdown', (event) => {
             mobileActive = true;
@@ -388,11 +472,13 @@
             mobileMoveId = null;
             mobileMove.x = 0;
             mobileMove.y = 0;
+            updateGameMovement();
         });
         mobileStick.addEventListener('pointercancel', () => {
             mobileMoveId = null;
             mobileMove.x = 0;
             mobileMove.y = 0;
+            updateGameMovement();
         });
         mobileLook.addEventListener('pointerdown', (event) => {
             mobileActive = true;
@@ -403,9 +489,14 @@
         });
         mobileLook.addEventListener('pointermove', (event) => {
             if (event.pointerId !== mobileLookId) return;
-            camera.rotation.y -= (event.clientX - lastLookX) * 0.006;
-            camera.rotation.x -= (event.clientY - lastLookY) * 0.006;
-            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            const movementX = event.clientX - lastLookX;
+            const movementY = event.clientY - lastLookY;
+            if (isPCGameActive()) sendGameMouse(0, 'mousemove', movementX, movementY);
+            else {
+                camera.rotation.y -= movementX * 0.006;
+                camera.rotation.x -= movementY * 0.006;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+            }
             lastLookX = event.clientX;
             lastLookY = event.clientY;
         });
@@ -601,7 +692,7 @@
         // key light (sun) with soft shadows
         const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
         directionalLight.position.set(5, 10, 7);
-        directionalLight.castShadow = true;
+        //directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.set(2048, 2048);
         directionalLight.shadow.camera.near = 0.5;
         directionalLight.shadow.camera.far = 50;
