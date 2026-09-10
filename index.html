@@ -60,6 +60,16 @@
             border-radius: 6px;
             pointer-events: none;
         }
+        #VRButton {
+            top: 1rem !important;
+            right: 1rem !important;
+            bottom: auto !important;
+            left: auto !important;
+            width: 7rem !important;
+            height: 2.25rem !important;
+            padding: 0 !important;
+            font-size: .7rem !important;
+        }
         #mobile-controls { display: none; }
         @media (hover: none), (pointer: coarse) {
             #instructions span { display: block; }
@@ -492,7 +502,7 @@
             const movementX = event.clientX - lastLookX;
             const movementY = event.clientY - lastLookY;
             if (isPCGameActive()) sendGameMouse(0, 'mousemove', movementX, movementY);
-            else {
+            else if (!gameActive) {
                 camera.rotation.y -= movementX * 0.006;
                 camera.rotation.x -= movementY * 0.006;
                 camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
@@ -595,7 +605,7 @@
         }
 
         function movePlayer(delta) {
-            if (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting) return;
+            if (gameActive || (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting)) return;
 
             const xrMovement = updateXRControls();
             const movementX = mobileActive ? mobileMove.x : xrMovement.x;
