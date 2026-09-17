@@ -416,13 +416,12 @@
         function sendGameKey(code, type) {
             const target = gameDocument();
             if (!target) return;
-            const canvas = target.querySelector('#unity-canvas') || target.body;
-            const key = code === 'Space' ? ' ' : code.replace('Key', '');
+            const key = code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase();
             const keyCode = code === 'Space' ? 32 : code.charCodeAt(code.length - 1);
-            const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true });
+            const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true, cancelable: true });
             Object.defineProperty(event, 'keyCode', { value: keyCode });
             Object.defineProperty(event, 'which', { value: keyCode });
-            canvas.dispatchEvent(event);
+            target.dispatchEvent(event);
         }
         function setGameKey(code, pressed) {
             if (!isPCGameActive()) return;
