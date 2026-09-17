@@ -1,156 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Digital Twin</title>
-    </head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Twin</title>
     <style>
-        html, body { height: 100%; }
-        body { margin: 0; overflow: hidden; background: #87ceeb; font-family: system-ui, sans-serif; }
-        #instructions {
-            position: fixed;
-            inset: 50% auto auto 50%;
-            z-index: 4;
-            transform: translate(-50%, -50%);
-            padding: 1.2rem 1.5rem;
-            color: #fff;
-            text-align: center;
-            background: rgb(10 20 30 / 82%);
-            border: 1px solid rgb(255 255 255 / 28%);
-            border-radius: 8px;
-            cursor: pointer;
-            user-select: none;
+      :root {
+        --sky-blue: #87ceeb;
+        --panel-bg: rgba(10, 20, 30, 0.82);
+        --panel-border: rgba(255, 255, 255, 0.28);
+        --panel-highlight: rgba(255, 255, 255, 0.55);
+        --screen-black: #050505;
+        --white: #ffffff;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: var(--sky-blue);
+        font-family: system-ui, sans-serif;
+      }
+
+      #instructions {
+        position: fixed;
+        inset: 50% auto auto 50%;
+        z-index: 4;
+        transform: translate(-50%, -50%);
+        padding: 1.2rem 1.5rem;
+        color: var(--white);
+        text-align: center;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      #instructions strong {
+        display: block;
+        margin-bottom: 0.45rem;
+        font-size: 1.15rem;
+      }
+
+      #instructions span {
+        font-size: 0.9rem;
+        opacity: 0.82;
+      }
+
+      #crosshair {
+        position: fixed;
+        inset: 50% auto auto 50%;
+        z-index: 1;
+        width: 8px;
+        height: 8px;
+        transform: translate(-50%, -50%);
+        border: 1px solid rgba(255, 255, 255, 0.85);
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      #game-screen {
+        position: fixed;
+        z-index: 3;
+        display: none;
+        border: 0;
+        background: var(--screen-black);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+        aspect-ratio: 360 / 640;
+        transform-origin: center;
+        pointer-events: none;
+      }
+
+      #screen-prompt {
+        position: fixed;
+        left: 50%;
+        bottom: 8%;
+        z-index: 4;
+        display: none;
+        transform: translateX(-50%);
+        padding: 0.65rem 1rem;
+        color: var(--white);
+        background: rgba(10, 20, 30, 0.85);
+        border-radius: 6px;
+        pointer-events: none;
+      }
+
+      #VRButton {
+        top: 1rem !important;
+        right: 1rem !important;
+        bottom: auto !important;
+        left: auto !important;
+        width: 7rem !important;
+        height: 2.25rem !important;
+        padding: 0 !important;
+        font-size: 0.7rem !important;
+      }
+
+      #mobile-controls {
+        display: none;
+      }
+
+      @media (hover: none), (pointer: coarse) {
+        #instructions span {
+          display: block;
         }
-        #instructions strong { display: block; margin-bottom: .45rem; font-size: 1.15rem; }
-        #instructions span { font-size: .9rem; opacity: .82; }
-        #crosshair {
-            position: fixed;
-            inset: 50% auto auto 50%;
-            z-index: 1;
-            width: 8px;
-            height: 8px;
-            transform: translate(-50%, -50%);
-            border: 1px solid rgb(255 255 255 / 85%);
-            border-radius: 50%;
-            pointer-events: none;
+
+        #mobile-controls {
+          position: fixed;
+          inset: 0;
+          z-index: 5;
+          display: block;
+          pointer-events: none;
         }
-        #game-screen {
-            position: fixed;
-            z-index: 3;
-            display: none;
-            border: 0;
-            background: #050505;
-            box-shadow: 0 12px 35px rgb(0 0 0 / 45%);
-            aspect-ratio: 360 / 640;
-            transform-origin: center;
-            pointer-events: none;
-            display: block;
+
+        #mobile-stick,
+        #mobile-look {
+          position: absolute;
+          bottom: 1.5rem;
+          width: 7rem;
+          height: 7rem;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 50%;
+          background: rgba(10, 20, 30, 0.22);
+          pointer-events: auto;
+          touch-action: none;
         }
-        #screen-prompt {
-            position: fixed;
-            left: 50%;
-            bottom: 8%;
-            z-index: 4;
-            display: none;
-            transform: translateX(-50%);
-            padding: .65rem 1rem;
-            color: #fff;
-            background: rgb(10 20 30 / 85%);
-            border-radius: 6px;
-            pointer-events: none;
+
+        #mobile-stick {
+          left: 1.2rem;
         }
-        #VRButton {
-            top: 1rem !important;
-            right: 1rem !important;
-            bottom: auto !important;
-            left: auto !important;
-            width: 7rem !important;
-            height: 2.25rem !important;
-            padding: 0 !important;
-            font-size: .7rem !important;
+
+        #mobile-look {
+          right: 1.2rem;
         }
-        #mobile-controls { display: none; }
-        @media (hover: none), (pointer: coarse) {
-            #instructions span { display: block; }
-            #mobile-controls {
-                position: fixed;
-                inset: 0;
-                z-index: 5;
-                display: block;
-                pointer-events: none;
-            }
-            #mobile-stick, #mobile-look {
-                position: absolute;
-                bottom: 1.5rem;
-                width: 7rem;
-                height: 7rem;
-                border: 1px solid rgb(255 255 255 / 35%);
-                border-radius: 50%;
-                background: rgb(10 20 30 / 22%);
-                pointer-events: auto;
-                touch-action: none;
-            }
-            #mobile-stick { left: 1.2rem; }
-            #mobile-look { right: 1.2rem; }
-            #mobile-stick::after {
-                content: '';
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                width: 3rem;
-                height: 3rem;
-                border-radius: 50%;
-                background: rgb(255 255 255 / 55%);
-                transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
-            }
-            #mobile-interact {
-                position: absolute;
-                right: 1.5rem;
-                bottom: 9.5rem;
-                width: 3.5rem;
-                height: 3.5rem;
-                border: 1px solid rgb(255 255 255 / 55%);
-                border-radius: 50%;
-                color: #fff;
-                background: rgb(10 20 30 / 72%);
-                font-weight: 700;
-                pointer-events: auto;
-                touch-action: manipulation;
-            }
-            #mobile-game-buttons {
-                position: absolute;
-                left: 50%;
-                bottom: 1.5rem;
-                display: none;
-                gap: .5rem;
-                transform: translateX(-50%);
-                pointer-events: auto;
-            }
-            #mobile-game-buttons button {
-                min-width: 3.5rem;
-                height: 3.5rem;
-                border: 1px solid rgb(255 255 255 / 55%);
-                border-radius: .5rem;
-                color: #fff;
-                background: rgb(10 20 30 / 72%);
-                font-weight: 700;
-                touch-action: none;
-            }
+
+        #mobile-stick::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 3rem;
+          height: 3rem;
+          border-radius: 50%;
+          background: var(--panel-highlight);
+          transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
         }
+
+        #mobile-interact {
+          position: absolute;
+          right: 1.5rem;
+          bottom: 9.5rem;
+          width: 3.5rem;
+          height: 3.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.55);
+          border-radius: 50%;
+          color: var(--white);
+          background: rgba(10, 20, 30, 0.72);
+          font-weight: 700;
+          pointer-events: auto;
+          touch-action: manipulation;
+        }
+
+        #mobile-game-buttons {
+          position: absolute;
+          left: 50%;
+          bottom: 1.5rem;
+          display: none;
+          gap: 0.5rem;
+          transform: translateX(-50%);
+          pointer-events: auto;
+        }
+
+        #mobile-game-buttons button {
+          min-width: 3.5rem;
+          height: 3.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.55);
+          border-radius: 0.5rem;
+          color: var(--white);
+          background: rgba(10, 20, 30, 0.72);
+          font-weight: 700;
+          touch-action: none;
+        }
+      }
     </style>
+  </head>
+  <body>
     <script type="module">
-        import * as THREE from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/three.module.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/GLTFLoader.js';
-        import { VRButton } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/VRButton.js';
-        import Stats from 'https://cdn.jsdelivr.net/npm/stats.js@0.17.0/src/Stats.js';
+      import * as THREE from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/three.module.js';
+      import { GLTFLoader } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/GLTFLoader.js';
+      import { VRButton } from 'https://cdn.jsdelivr.net/gh/mesquite-mocap/mesquite.cc/build-static/VRButton.js';
+      import Stats from 'https://cdn.jsdelivr.net/npm/stats.js@0.17.0/src/Stats.js';
 
-        let room;
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        const xrControllers = [renderer.xr.getController(0), renderer.xr.getController(1)];
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      const xrControllers = [renderer.xr.getController(0), renderer.xr.getController(1)];
+      const clock = new THREE.Clock();
+      const keys = new Set();
+      const collisionMeshes = [];
+      const roomBounds = new THREE.Box3();
+      const raycaster = new THREE.Raycaster();
+      const textureLoader = new THREE.TextureLoader();
+      const screenHeight = 3.2;
+      const signWidth = 3.2;
+      const signHeight = signWidth * 500 / 630;
+      const screens = [];
+      const pcGameIds = new Set(['north', 'east']);
+      const gameKeys = new Set();
 
+      let room;
+      let activePortal;
+      let gameActive = false;
+      let gameLoaded = false;
+      let mobileActive = false;
+      let mobileLookId = null;
+      let mobileMoveId = null;
+      let mobileMoveRotationFrame = null;
+      let lastLookX = 0;
+      let lastLookY = 0;
+      const mobileMove = { x: 0, y: 0 };
+
+      const ui = {
+        instructions: document.createElement('div'),
+        crosshair: document.createElement('div'),
+        gameIframe: document.createElement('iframe'),
+        screenPrompt: document.createElement('div'),
+        mobileControls: document.createElement('div'),
+        mobileStick: null,
+        mobileLook: null,
+        mobileInteract: null,
+        mobileGameButtons: null,
+        mobileLeftClick: null,
+        mobileRightClick: null,
+        mobileSpace: null
+      };
+
+      function buildUi() {
+        const smiley = String.fromCodePoint(0x1f600);
+        const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
+        ui.instructions.id = 'instructions';
+        ui.instructions.innerHTML = coarsePointer
+          ? `<strong>Touch here to explore ${smiley}</strong><span>Left stick to walk · Right stick to look · E to play</span>`
+          : `<strong>Click here to explore ${smiley}</strong><span>WASD to walk · Mouse to look · E near a doorway to play</span>`;
+        document.body.appendChild(ui.instructions);
+
+        ui.crosshair.id = 'crosshair';
+        document.body.appendChild(ui.crosshair);
+
+        ui.gameIframe.id = 'game-screen';
+        ui.gameIframe.src = 'about:blank';
+        ui.gameIframe.allow = 'fullscreen; autoplay; gamepad; pointer-lock';
+        ui.gameIframe.allowFullscreen = true;
+        document.body.appendChild(ui.gameIframe);
+
+        ui.screenPrompt.id = 'screen-prompt';
+        document.body.appendChild(ui.screenPrompt);
+
+        ui.mobileControls.id = 'mobile-controls';
+        ui.mobileControls.innerHTML = `
+          <div id="mobile-stick" aria-label="Move"></div>
+          <div id="mobile-look" aria-label="Look"></div>
+          <button id="mobile-interact" type="button">E</button>
+          <div id="mobile-game-buttons">
+            <button id="mobile-left-click" type="button">LMB</button>
+            <button id="mobile-right-click" type="button">RMB</button>
+            <button id="mobile-space" type="button">Space</button>
+          </div>
+        `;
+        document.body.appendChild(ui.mobileControls);
+
+        ui.mobileStick = document.querySelector('#mobile-stick');
+        ui.mobileLook = document.querySelector('#mobile-look');
+        ui.mobileInteract = document.querySelector('#mobile-interact');
+        ui.mobileGameButtons = document.querySelector('#mobile-game-buttons');
+        ui.mobileLeftClick = document.querySelector('#mobile-left-click');
+        ui.mobileRightClick = document.querySelector('#mobile-right-click');
+        ui.mobileSpace = document.querySelector('#mobile-space');
+      }
+
+      function setupRenderer() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
@@ -160,613 +294,658 @@
         renderer.xr.enabled = true;
         document.body.appendChild(renderer.domElement);
         document.body.appendChild(VRButton.createButton(renderer));
+      }
 
-        const instructions = document.createElement('div');
-        instructions.id = 'instructions';
-        const smiley = String.fromCodePoint(0x1F600); 
-        const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-        instructions.innerHTML = coarsePointer
-            ? `<strong>Touch here to explore ${smiley}</strong><span>Left stick to walk · Right stick to look · E to play</span>`
-            : `<strong>Click here to explore ${smiley}</strong><span>WASD to walk · Mouse to look · E near a doorway to play</span>`;
-        document.body.appendChild(instructions);
-        const crosshair = document.createElement('div');
-        crosshair.id = 'crosshair';
-        document.body.appendChild(crosshair);
-        const gameIframe = document.createElement('iframe');
-        gameIframe.id = 'game-screen';
-        gameIframe.src = 'about:blank';
-        gameIframe.allow = 'fullscreen; autoplay; gamepad; pointer-lock';
-        gameIframe.allowFullscreen = true;
-        document.body.appendChild(gameIframe);
-        const screenPrompt = document.createElement('div');
-        screenPrompt.id = 'screen-prompt';
-        document.body.appendChild(screenPrompt);
-        const mobileControls = document.createElement('div');
-        mobileControls.id = 'mobile-controls';
-        mobileControls.innerHTML = '<div id="mobile-stick" aria-label="Move"></div><div id="mobile-look" aria-label="Look"></div><button id="mobile-interact" type="button">E</button><div id="mobile-game-buttons"><button id="mobile-left-click" type="button">LMB</button><button id="mobile-right-click" type="button">RMB</button><button id="mobile-space" type="button">Space</button></div>';
-        document.body.appendChild(mobileControls);
+      const portalConfigs = [
+        { id: 'north', title: 'Necross', source: './Necross/index.html', thumbnail: './Necross/Thumbnail.png', width: 1366, height: 768, rotation: 0 },
+        { id: 'south', title: 'Dumb Rock Game', source: './RocGame/index.html', thumbnail: './RocGame/Thumbnail.png', width: 360, height: 640, rotation: Math.PI },
+        { id: 'east', title: 'The Haunt of Suraxu', source: './THOS/index.html', thumbnail: './THOS/Thumbnail.png', width: 1366, height: 768, rotation: -Math.PI / 2 },
+        { id: 'west', title: 'Scoop Scoop Icecream Shop', source: './ScoopScoop/index.html', thumbnail: './ScoopScoop/Thumbnail.png', width: 360, height: 640, rotation: Math.PI / 2 }
+      ];
 
-        const portalConfigs = [
-            { id: 'north', title: 'Necross', source: './Necross/index.html', thumbnail: './Necross/Thumbnail.png', width: 1366, height: 768, rotation: 0 },
-            { id: 'south', title: 'Dumb Rock Game', source: './RocGame/index.html', thumbnail: './RocGame/Thumbnail.png', width: 360, height: 640, rotation: Math.PI },
-            { id: 'east', title: 'The Haunt of Suraxu', source: './THOS/index.html', thumbnail: './THOS/Thumbnail.png', width: 1366, height: 768, rotation: -Math.PI / 2 },
-            { id: 'west', title: 'Scoop Scoop Icecream Shop', source: './ScoopScoop/index.html', thumbnail: './ScoopScoop/Thumbnail.png', width: 360, height: 640, rotation: Math.PI / 2 }
-        ];
-        const screenHeight = 3.2;
-        const signWidth = 3.2;
-        const signHeight = signWidth * 500 / 630;
-        const screens = [];
-        let activePortal;
-        let gameActive = false;
-        let gameLoaded = false;
-        let mobileActive = false;
-        const mobileMove = { x: 0, y: 0 };
-        let mobileLookId = null;
-        let mobileMoveId = null;
-        let mobileMoveRotationFrame = null;
-        let lastLookX = 0;
-        let lastLookY = 0;
-        const pcGameIds = new Set(['north', 'east']);
-        const gameKeys = new Set();
-        const textureLoader = new THREE.TextureLoader();
+      function buildPortals() {
         for (const config of portalConfigs) {
-            const screenWidth = screenHeight * config.width / config.height;
-            const screen = new THREE.Group();
-            const screenFrame = new THREE.Mesh(
-                new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
-                new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
-            );
-            const screenSurface = new THREE.Mesh(
-                new THREE.PlaneGeometry(screenWidth, screenHeight),
-                new THREE.MeshBasicMaterial({ color: 0x050505 })
-            );
-            screenSurface.position.z = 0.1;
-            screen.add(screenFrame, screenSurface);
+          const screenWidth = screenHeight * (config.width / config.height);
+          const screen = new THREE.Group();
+          const screenFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
+            new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
+          );
+          const screenSurface = new THREE.Mesh(
+            new THREE.PlaneGeometry(screenWidth, screenHeight),
+            new THREE.MeshBasicMaterial({ color: 0x050505 })
+          );
 
-            const signMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: true, side: THREE.DoubleSide });
-            const sign = new THREE.Mesh(new THREE.PlaneGeometry(signWidth, signHeight), signMaterial);
-            sign.position.set(0, screenHeight / 2 + signHeight / 2 + 0.35, 0.45);
-            textureLoader.load(config.thumbnail, (texture) => {
-                texture.colorSpace = THREE.SRGBColorSpace;
-                signMaterial.map = texture;
-                signMaterial.needsUpdate = true;
-            });
-            screen.add(sign);
-            screen.rotation.y = config.rotation;
-            scene.add(screen);
-            screens.push({ config, screen, screenFrame, screenSurface, width: screenWidth });
+          screenSurface.position.z = 0.1;
+          screen.add(screenFrame, screenSurface);
+
+          const signMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            depthTest: true,
+            side: THREE.DoubleSide
+          });
+          const sign = new THREE.Mesh(new THREE.PlaneGeometry(signWidth, signHeight), signMaterial);
+          sign.position.set(0, screenHeight / 2 + signHeight / 2 + 0.35, 0.45);
+
+          textureLoader.load(config.thumbnail, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            signMaterial.map = texture;
+            signMaterial.needsUpdate = true;
+          });
+
+          screen.rotation.y = config.rotation;
+          screen.add(sign);
+          scene.add(screen);
+          screens.push({ config, screen, screenFrame, screenSurface, width: screenWidth });
         }
+      }
 
-        const focus = {
-            active: false,
-            progress: 1,
-            startPosition: new THREE.Vector3(),
-            startQuaternion: new THREE.Quaternion(),
-            targetPosition: new THREE.Vector3(),
-            targetQuaternion: new THREE.Quaternion()
+      const focus = {
+        active: false,
+        progress: 1,
+        startPosition: new THREE.Vector3(),
+        startQuaternion: new THREE.Quaternion(),
+        targetPosition: new THREE.Vector3(),
+        targetQuaternion: new THREE.Quaternion()
+      };
+
+      function getUsableScreen() {
+        if (!room || focus.active || gameActive) return null;
+
+        return screens
+          .map((entry) => ({
+            entry,
+            distance: camera.position.distanceTo(entry.screenSurface.getWorldPosition(new THREE.Vector3()))
+          }))
+          .filter(({ distance }) => distance <= 8)
+          .sort((first, second) => first.distance - second.distance)[0]?.entry || null;
+      }
+
+      function focusCameraOnScreen(entry) {
+        if (!entry) return;
+
+        entry.screen.updateMatrixWorld(true);
+        const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
+        const normal = entry.screenSurface.localToWorld(new THREE.Vector3(0, 0, 1)).sub(center).normalize();
+        if (normal.dot(camera.position.clone().sub(center)) < 0) normal.negate();
+
+        const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+        const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+        const verticalDistance = (screenHeight / 2) / Math.tan(verticalFov / 2);
+        const horizontalDistance = (entry.width / 2) / Math.tan(horizontalFov / 2);
+        const distance = Math.max(verticalDistance, horizontalDistance) * 1.12;
+
+        focus.startPosition.copy(camera.position);
+        focus.startQuaternion.copy(camera.quaternion);
+        focus.targetPosition.copy(center).addScaledVector(normal, distance);
+
+        const focusedCamera = camera.clone();
+        focusedCamera.position.copy(focus.targetPosition);
+        focusedCamera.lookAt(center);
+        focus.targetQuaternion.copy(focusedCamera.quaternion);
+        focus.progress = 0;
+        focus.active = true;
+        activePortal = entry;
+        gameActive = false;
+        ui.gameIframe.style.display = 'none';
+        ui.gameIframe.title = entry.config.title;
+        ui.screenPrompt.textContent = `Press E to play ${entry.config.title}`;
+        if (!gameLoaded) {
+          ui.gameIframe.src = entry.config.source;
+          gameLoaded = true;
+        }
+        controls.unlock();
+      }
+
+      function updateCameraFocus(delta) {
+        if (!focus.active) return;
+
+        focus.progress = Math.min(focus.progress + delta * 3, 1);
+        const eased = 1 - Math.pow(1 - focus.progress, 3);
+        camera.position.lerpVectors(focus.startPosition, focus.targetPosition, eased);
+        camera.quaternion.copy(focus.startQuaternion).slerp(focus.targetQuaternion, eased);
+
+        if (focus.progress >= 1) {
+          focus.active = false;
+          gameActive = true;
+          ui.gameIframe.style.pointerEvents = 'auto';
+          resizeGameWindow();
+          ui.gameIframe.focus();
+        }
+      }
+
+      function updateGameScreen() {
+        ui.gameIframe.style.display = gameActive ? 'block' : 'none';
+        ui.gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+
+        const nearbyScreen = getUsableScreen();
+        ui.screenPrompt.textContent = nearbyScreen ? `Press E to play ${nearbyScreen.config.title}` : '';
+        ui.screenPrompt.style.display = !gameActive && nearbyScreen ? 'block' : 'none';
+
+        const pcGameActive = window.matchMedia('(pointer: coarse)').matches && gameActive && activePortal && pcGameIds.has(activePortal.config.id);
+        ui.mobileGameButtons.style.display = pcGameActive ? 'flex' : 'none';
+      }
+
+      function resizeGameWindow() {
+        const nativeWidth = activePortal?.config.width || 1;
+        const nativeHeight = activePortal?.config.height || 1;
+        const scale = Math.min((window.innerWidth * 0.78) / nativeWidth, (window.innerHeight * 0.88) / nativeHeight);
+        const width = nativeWidth * scale;
+        const height = nativeHeight * scale;
+
+        ui.gameIframe.style.left = `${(window.innerWidth - width) / 2}px`;
+        ui.gameIframe.style.top = `${(window.innerHeight - height) / 2}px`;
+        ui.gameIframe.style.width = `${width}px`;
+        ui.gameIframe.style.height = `${height}px`;
+      }
+
+      function canUseScreen(entry) {
+        if (!room || focus.active || gameActive || !entry) return false;
+
+        const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
+        if (camera.position.distanceTo(center) > 8) return false;
+
+        const viewRay = new THREE.Raycaster();
+        viewRay.setFromCamera(new THREE.Vector2(0, 0), camera);
+        return viewRay.intersectObject(entry.screenFrame, false).length > 0;
+      }
+
+      function placePortals(bounds) {
+        const center = bounds.getCenter(new THREE.Vector3());
+        const floor = bounds.min.y;
+        const wallOffset = 0.18;
+        const portalY = floor + screenHeight / 2 + 0.08;
+        const placements = {
+          north: [center.x, portalY, bounds.min.z + wallOffset],
+          south: [center.x, portalY, bounds.max.z - wallOffset],
+          east: [bounds.max.x - wallOffset, portalY, center.z],
+          west: [bounds.min.x + wallOffset, portalY, center.z]
         };
 
-        function getUsableScreen() {
-            if (!room || focus.active || gameActive) return null;
-            return screens
-                .map((entry) => ({ entry, distance: camera.position.distanceTo(entry.screenSurface.getWorldPosition(new THREE.Vector3())) }))
-                .filter(({ distance }) => distance <= 8)
-                .sort((first, second) => first.distance - second.distance)[0]?.entry || null;
+        for (const entry of screens) {
+          entry.screen.position.set(...placements[entry.config.id]);
+        }
+      }
+
+      function closeGame() {
+        releaseGameInputs();
+        gameActive = false;
+        ui.gameIframe.style.display = 'none';
+        ui.gameIframe.style.pointerEvents = 'none';
+        ui.gameIframe.src = 'about:blank';
+        gameLoaded = false;
+        activePortal = null;
+        keys.clear();
+
+        if (!mobileActive && !renderer.xr.isPresenting) {
+          controls.lock();
+        }
+      }
+
+      const controls = {
+        isLocked: false,
+        lock() { renderer.domElement.requestPointerLock(); },
+        unlock() { document.exitPointerLock(); }
+      };
+
+      camera.rotation.order = 'YXZ';
+
+      function activateInteraction() {
+        if (gameActive) {
+          closeGame();
+          return;
         }
 
-        function focusCameraOnScreen(entry) {
-            if (!entry) return;
+        const usableScreen = getUsableScreen();
+        if (usableScreen) focusCameraOnScreen(usableScreen);
+      }
 
-            entry.screen.updateMatrixWorld(true);
-            const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
-            const normal = entry.screenSurface.localToWorld(new THREE.Vector3(0, 0, 1)).sub(center).normalize();
-            if (normal.dot(camera.position.clone().sub(center)) < 0) normal.negate();
-
-            const verticalFov = THREE.MathUtils.degToRad(camera.fov);
-            const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
-            const verticalDistance = (screenHeight / 2) / Math.tan(verticalFov / 2);
-            const horizontalDistance = (entry.width / 2) / Math.tan(horizontalFov / 2);
-            const distance = Math.max(verticalDistance, horizontalDistance) * 1.12;
-
-            focus.startPosition.copy(camera.position);
-            focus.startQuaternion.copy(camera.quaternion);
-            focus.targetPosition.copy(center).addScaledVector(normal, distance);
-
-            const focusedCamera = camera.clone();
-            focusedCamera.position.copy(focus.targetPosition);
-            focusedCamera.lookAt(center);
-            focus.targetQuaternion.copy(focusedCamera.quaternion);
-            focus.progress = 0;
-            focus.active = true;
-            activePortal = entry;
-            gameActive = false;
-            gameIframe.style.display = 'none';
-            gameIframe.title = entry.config.title;
-            screenPrompt.textContent = `Press E to play ${entry.config.title}`;
-            if (!gameLoaded) {
-                gameIframe.src = entry.config.source;
-                gameLoaded = true;
-            }
-            controls.unlock();
+      ui.instructions.addEventListener('click', () => {
+        if (window.matchMedia('(pointer: coarse)').matches) {
+          mobileActive = true;
+          ui.instructions.style.display = 'none';
+        } else {
+          controls.lock();
         }
+      });
 
-        function updateCameraFocus(delta) {
-            if (!focus.active) return;
+      document.addEventListener('pointerlockchange', () => {
+        controls.isLocked = document.pointerLockElement === renderer.domElement;
+        ui.instructions.style.display = 'none';
+        ui.gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
 
-            focus.progress = Math.min(focus.progress + delta * 3, 1);
-            const eased = 1 - Math.pow(1 - focus.progress, 3);
-            camera.position.lerpVectors(focus.startPosition, focus.targetPosition, eased);
-            camera.quaternion.copy(focus.startQuaternion).slerp(focus.targetQuaternion, eased);
-            if (focus.progress >= 1) {
-                focus.active = false;
-                gameActive = true;
-                gameIframe.style.pointerEvents = 'auto';
-                resizeGameWindow();
-                gameIframe.focus();
-            }
+        if (!controls.isLocked && !gameActive && room) {
+          keys.clear();
         }
+      });
 
-        function updateGameScreen() {
-            gameIframe.style.display = gameActive ? 'block' : 'none';
-            gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
-            const nearbyScreen = getUsableScreen();
-            screenPrompt.textContent = nearbyScreen ? `Press E to play ${nearbyScreen.config.title}` : '';
-            screenPrompt.style.display = !gameActive && nearbyScreen ? 'block' : 'none';
-            const pcGameActive = coarsePointer && gameActive && activePortal && pcGameIds.has(activePortal.config.id);
-            document.querySelector('#mobile-game-buttons').style.display = pcGameActive ? 'flex' : 'none';
+      renderer.domElement.addEventListener('click', () => {
+        if (gameActive) {
+          closeGame();
+        } else if (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting) {
+          controls.lock();
         }
+      });
 
-        function resizeGameWindow() {
-            const nativeWidth = activePortal?.config.width || 1;
-            const nativeHeight = activePortal?.config.height || 1;
-            const scale = Math.min((window.innerWidth * 0.78) / nativeWidth, (window.innerHeight * 0.88) / nativeHeight);
-            const width = nativeWidth * scale;
-            const height = nativeHeight * scale;
-            gameIframe.style.left = `${(window.innerWidth - width) / 2}px`;
-            gameIframe.style.top = `${(window.innerHeight - height) / 2}px`;
-            gameIframe.style.width = `${width}px`;
-            gameIframe.style.height = `${height}px`;
+      document.addEventListener('mousemove', (event) => {
+        if (!controls.isLocked) return;
+
+        camera.rotation.y -= event.movementX * 0.002;
+        camera.rotation.x -= event.movementY * 0.002;
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+      });
+
+      function isPCGameActive() {
+        return gameActive && activePortal && pcGameIds.has(activePortal.config.id);
+      }
+
+      function gameDocument() {
+        try {
+          return ui.gameIframe.contentDocument;
+        } catch {
+          return null;
         }
+      }
 
-        function canUseScreen(entry) {
-            if (!room || focus.active || gameActive || !entry) return false;
-            const center = entry.screenSurface.getWorldPosition(new THREE.Vector3());
-            if (camera.position.distanceTo(center) > 8) return false;
-            const viewRay = new THREE.Raycaster();
-            viewRay.setFromCamera(new THREE.Vector2(0, 0), camera);
-            return viewRay.intersectObject(entry.screenFrame, false).length > 0;
-        }
+      function sendGameKey(code, type) {
+        const target = gameDocument();
+        if (!target) return;
 
-        function placePortals(bounds) {
-            const center = bounds.getCenter(new THREE.Vector3());
-            const floor = bounds.min.y;
-            const wallOffset = 0.18;
-            const portalY = floor + screenHeight / 2 + 0.08;
-            const placements = {
-                north: [center.x, portalY, bounds.min.z + wallOffset],
-                south: [center.x, portalY, bounds.max.z - wallOffset],
-                east: [bounds.max.x - wallOffset, portalY, center.z],
-                west: [bounds.min.x + wallOffset, portalY, center.z]
-            };
-            for (const entry of screens) entry.screen.position.set(...placements[entry.config.id]);
-        }
+        const key = code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase();
+        const keyCode = code === 'Space' ? 32 : code.charCodeAt(code.length - 1);
+        const canvas = target.querySelector('#unity-canvas');
+        const windowTarget = target.defaultView;
 
-        function closeGame() {
-            releaseGameInputs();
-            gameActive = false;
-            gameIframe.style.display = 'none';
-            gameIframe.style.pointerEvents = 'none';
-            gameIframe.src = 'about:blank';
-            gameLoaded = false;
-            activePortal = null;
-            keys.clear();
-            if (!mobileActive && !renderer.xr.isPresenting) controls.lock();
-        }
+        const dispatch = (eventTarget) => {
+          if (!eventTarget) return;
 
-        const controls = {
-            isLocked: false,
-            lock() { renderer.domElement.requestPointerLock(); },
-            unlock() { document.exitPointerLock(); }
+          const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true, cancelable: true });
+          Object.defineProperty(event, 'keyCode', { value: keyCode });
+          Object.defineProperty(event, 'which', { value: keyCode });
+          eventTarget.dispatchEvent(event);
         };
-        camera.rotation.order = 'YXZ';
-        function activateInteraction() {
-            if (gameActive) {
-                closeGame();
-                return;
-            }
-            const usableScreen = getUsableScreen();
-            if (usableScreen) focusCameraOnScreen(usableScreen);
+
+        if (canvas) {
+          canvas.focus();
+          dispatch(canvas);
         }
 
-        instructions.addEventListener('click', () => {
-            if (window.matchMedia('(pointer: coarse)').matches) {
-                mobileActive = true;
-                instructions.style.display = 'none';
-            } else {
-                controls.lock();
-            }
-        });
-        document.addEventListener('pointerlockchange', () => {
-            controls.isLocked = document.pointerLockElement === renderer.domElement;
-            instructions.style.display = 'none';
-            gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
-            if (!controls.isLocked && !gameActive && room) keys.clear();
-        });
-        renderer.domElement.addEventListener('click', () => {
-            if (gameActive) closeGame();
-            else if (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting) {
-                controls.lock();
-            }
-        });
-        document.addEventListener('mousemove', (event) => {
-            if (!controls.isLocked) return;
-            camera.rotation.y -= event.movementX * 0.002;
-            camera.rotation.x -= event.movementY * 0.002;
-            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        dispatch(target);
+        dispatch(windowTarget);
+      }
+
+      function setGameKey(code, pressed) {
+        if (!isPCGameActive()) return;
+
+        if (pressed && !gameKeys.has(code)) {
+          gameKeys.add(code);
+          sendGameKey(code, 'keydown');
+        } else if (!pressed && gameKeys.has(code)) {
+          gameKeys.delete(code);
+          sendGameKey(code, 'keyup');
+        }
+      }
+
+      function updateGameMovement() {
+        if (!isPCGameActive()) return;
+
+        if (activePortal.config.id === 'east') {
+          ui.gameIframe.contentWindow?.postMessage({ type: 'thos-movement', x: mobileMove.x, y: mobileMove.y }, '*');
+        }
+
+        setGameKey('KeyA', mobileMove.x < -0.25);
+        setGameKey('KeyD', mobileMove.x > 0.25);
+        setGameKey('KeyW', mobileMove.y < -0.25);
+        setGameKey('KeyS', mobileMove.y > 0.25);
+      }
+
+      function updateMobileMoveRotation() {
+        if (mobileMoveId === null || !isPCGameActive() || activePortal.config.id !== 'east') {
+          mobileMoveRotationFrame = null;
+          return;
+        }
+
+        sendGameMouse(0, 'mousemove', mobileMove.x * 4, 0);
+        mobileMoveRotationFrame = requestAnimationFrame(updateMobileMoveRotation);
+      }
+
+      function releaseGameInputs() {
+        for (const code of gameKeys) sendGameKey(code, 'keyup');
+        gameKeys.clear();
+      }
+
+      function sendGameMouse(button, type, movementX = 0, movementY = 0) {
+        const target = gameDocument();
+        if (!target) return;
+
+        const canvas = target.querySelector('#unity-canvas') || target.body;
+        canvas.dispatchEvent(new MouseEvent(type, { button, buttons: type === 'mouseup' ? 0 : 1 << button, movementX, movementY, bubbles: true }));
+      }
+
+      function bindGameButton(button, mouseButton) {
+        if (!button) return;
+
+        button.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          if (isPCGameActive()) sendGameMouse(mouseButton, 'mousedown');
         });
 
-        const mobileStick = document.querySelector('#mobile-stick');
-        const mobileLook = document.querySelector('#mobile-look');
-        const mobileInteract = document.querySelector('#mobile-interact');
-        const mobileGameButtons = document.querySelector('#mobile-game-buttons');
-        const mobileLeftClick = document.querySelector('#mobile-left-click');
-        const mobileRightClick = document.querySelector('#mobile-right-click');
-        const mobileSpace = document.querySelector('#mobile-space');
-        function isPCGameActive() {
-            return gameActive && activePortal && pcGameIds.has(activePortal.config.id);
-        }
-        function gameDocument() {
-            try { return gameIframe.contentDocument; } catch { return null; }
-        }
-        function sendGameKey(code, type) {
-            const target = gameDocument();
-            if (!target) return;
-            const key = code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase();
-            const keyCode = code === 'Space' ? 32 : code.charCodeAt(code.length - 1);
-            const canvas = target.querySelector('#unity-canvas');
-            const windowTarget = target.defaultView;
-            const dispatch = (eventTarget) => {
-                if (!eventTarget) return;
-                const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true, cancelable: true });
-                Object.defineProperty(event, 'keyCode', { value: keyCode });
-                Object.defineProperty(event, 'which', { value: keyCode });
-                eventTarget.dispatchEvent(event);
-            };
-            if (canvas) {
-                canvas.focus();
-                dispatch(canvas);
-            }
-            dispatch(target);
-            dispatch(windowTarget);
-        }
-        function setGameKey(code, pressed) {
-            if (!isPCGameActive()) return;
-            if (pressed && !gameKeys.has(code)) {
-                gameKeys.add(code);
-                sendGameKey(code, 'keydown');
-            } else if (!pressed && gameKeys.has(code)) {
-                gameKeys.delete(code);
-                sendGameKey(code, 'keyup');
-            }
-        }
-        function updateGameMovement() {
-            if (!isPCGameActive()) return;
-            if (activePortal.config.id === 'east') {
-                gameIframe.contentWindow?.postMessage({ type: 'thos-movement', x: mobileMove.x, y: mobileMove.y }, '*');
-            }
-            setGameKey('KeyA', mobileMove.x < -0.25);
-            setGameKey('KeyD', mobileMove.x > 0.25);
-            setGameKey('KeyW', mobileMove.y < -0.25);
-            setGameKey('KeyS', mobileMove.y > 0.25);
-        }
-        function updateMobileMoveRotation() {
-            if (mobileMoveId === null || !isPCGameActive() || activePortal.config.id !== 'east') {
-                mobileMoveRotationFrame = null;
-                return;
-            }
-            sendGameMouse(0, 'mousemove', mobileMove.x * 4, 0);
-            mobileMoveRotationFrame = requestAnimationFrame(updateMobileMoveRotation);
-        }
-        function releaseGameInputs() {
-            for (const code of gameKeys) sendGameKey(code, 'keyup');
-            gameKeys.clear();
-        }
-        function sendGameMouse(button, type, movementX = 0, movementY = 0) {
-            const target = gameDocument();
-            if (!target) return;
-            const canvas = target.querySelector('#unity-canvas') || target.body;
-            canvas.dispatchEvent(new MouseEvent(type, { button, buttons: type === 'mouseup' ? 0 : 1 << button, movementX, movementY, bubbles: true }));
-        }
-        function bindGameButton(button, mouseButton) {
-            button.addEventListener('pointerdown', (event) => {
-                event.preventDefault();
-                if (isPCGameActive()) sendGameMouse(mouseButton, 'mousedown');
-            });
-            const release = (event) => {
-                event.preventDefault();
-                if (isPCGameActive()) sendGameMouse(mouseButton, 'mouseup');
-            };
-            button.addEventListener('pointerup', release);
-            button.addEventListener('pointercancel', release);
-        }
-        bindGameButton(mobileLeftClick, 0);
-        bindGameButton(mobileRightClick, 2);
-        mobileSpace.addEventListener('pointerdown', (event) => { event.preventDefault(); setGameKey('Space', true); });
-        mobileSpace.addEventListener('pointerup', (event) => { event.preventDefault(); setGameKey('Space', false); });
-        mobileSpace.addEventListener('pointercancel', (event) => { event.preventDefault(); setGameKey('Space', false); });
-        function updateMobileStick(event) {
-            const bounds = mobileStick.getBoundingClientRect();
-            const radius = bounds.width / 2;
-            mobileMove.x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + radius)) / radius));
-            mobileMove.y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + radius)) / radius));
-            mobileStick.style.setProperty('--stick-x', `${mobileMove.x * (radius - 24)}px`);
-            mobileStick.style.setProperty('--stick-y', `${mobileMove.y * (radius - 24)}px`);
-            updateGameMovement();
-        }
-        function resetMobileStick() {
-            mobileMoveId = null;
-            if (mobileMoveRotationFrame !== null) {
-                cancelAnimationFrame(mobileMoveRotationFrame);
-                mobileMoveRotationFrame = null;
-            }
-            mobileMove.x = 0;
-            mobileMove.y = 0;
-            mobileStick.style.setProperty('--stick-x', '0px');
-            mobileStick.style.setProperty('--stick-y', '0px');
-            updateGameMovement();
-        }
-        mobileStick.addEventListener('pointerdown', (event) => {
-            mobileActive = true;
-            mobileMoveId = event.pointerId;
-            mobileStick.setPointerCapture(event.pointerId);
-            updateMobileStick(event);
-            updateMobileMoveRotation();
-        });
-        mobileStick.addEventListener('pointermove', (event) => {
-            if (event.pointerId === mobileMoveId) updateMobileStick(event);
-        });
-        mobileStick.addEventListener('pointerup', resetMobileStick);
-        mobileStick.addEventListener('pointercancel', resetMobileStick);
-        mobileLook.addEventListener('pointerdown', (event) => {
-            mobileActive = true;
-            mobileLookId = event.pointerId;
-            lastLookX = event.clientX;
-            lastLookY = event.clientY;
-            mobileLook.setPointerCapture(event.pointerId);
-        });
-        mobileLook.addEventListener('pointermove', (event) => {
-            if (event.pointerId !== mobileLookId) return;
-            const movementX = event.clientX - lastLookX;
-            const movementY = event.clientY - lastLookY;
-            if (isPCGameActive()) sendGameMouse(0, 'mousemove', movementX, movementY);
-            else if (!gameActive) {
-                camera.rotation.y -= movementX * 0.006;
-                camera.rotation.x -= movementY * 0.006;
-                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-            }
-            lastLookX = event.clientX;
-            lastLookY = event.clientY;
-        });
-        const endMobileLook = () => { mobileLookId = null; };
-        mobileLook.addEventListener('pointerup', endMobileLook);
-        mobileLook.addEventListener('pointercancel', endMobileLook);
-        mobileInteract.addEventListener('click', activateInteraction);
-
-        function getXRGamepad(controllerIndex) {
-            return renderer.xr.getController(controllerIndex)?.inputSource?.gamepad;
-        }
-        function updateXRControls() {
-            if (!renderer.xr.isPresenting) return { x: 0, z: 0 };
-            const leftGamepad = getXRGamepad(0);
-            const rightGamepad = getXRGamepad(1);
-            if (rightGamepad) {
-                const turn = rightGamepad.axes[2] || 0;
-                const look = rightGamepad.axes[3] || 0;
-                camera.rotation.y -= turn * 0.035;
-                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x + look * 0.02));
-            }
-            return leftGamepad ? { x: leftGamepad.axes[2] || 0, z: leftGamepad.axes[3] || 0 } : { x: 0, z: 0 };
-        }
-        xrControllers.forEach((controller) => {
-            controller.addEventListener('selectstart', activateInteraction);
-            scene.add(controller);
-        });
-        renderer.xr.addEventListener('sessionstart', () => {
-            mobileActive = false;
-            instructions.style.display = 'none';
-        });
-
-        const player = {
-            height: 1.7,
-            radius: 0.32,
-            speed: 4.5,
-            eyeHeight: 1.55,
-            velocity: new THREE.Vector3(),
-            onFloor: false,
-            spawn: new THREE.Vector3(0, 1.55, 0)
+        const release = (event) => {
+          event.preventDefault();
+          if (isPCGameActive()) sendGameMouse(mouseButton, 'mouseup');
         };
-        const collisionMeshes = [];
-        const roomBounds = new THREE.Box3();
-        const raycaster = new THREE.Raycaster();
-        const keys = new Set();
-        const clock = new THREE.Clock();
 
-        document.addEventListener('keydown', (event) => {
-            const usableScreen = getUsableScreen();
-            if (event.code === 'KeyE' && usableScreen) {
-                event.preventDefault();
-                activateInteraction();
-                return;
-            }
-            keys.add(event.code);
-            if (event.code === 'Space' && player.onFloor) player.velocity.y = 5;
-        });
-        document.addEventListener('keyup', (event) => keys.delete(event.code));
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+      }
 
-        function horizontalBlocked(position, direction, distance) {
-            const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
-            const offsets = [-player.radius * 0.8, 0, player.radius * 0.8];
-            const heights = [0.12, player.eyeHeight, player.height - 0.12];
+      function updateMobileStick(event) {
+        const bounds = ui.mobileStick.getBoundingClientRect();
+        const radius = bounds.width / 2;
 
-            for (const offset of offsets) {
-                for (const height of heights) {
-                    const origin = new THREE.Vector3(position.x, position.y - player.eyeHeight + height, position.z)
-                        .addScaledVector(perpendicular, offset);
-                    raycaster.set(origin, direction);
-                    raycaster.far = distance + 0.05;
-                    const hit = raycaster.intersectObjects(collisionMeshes, false).find((intersection) => !isDoorwayOpening(intersection.point));
-                    if (hit) return true;
-                }
-            }
-            return false;
+        mobileMove.x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + radius)) / radius));
+        mobileMove.y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + radius)) / radius));
+
+        ui.mobileStick.style.setProperty('--stick-x', `${mobileMove.x * (radius - 24)}px`);
+        ui.mobileStick.style.setProperty('--stick-y', `${mobileMove.y * (radius - 24)}px`);
+        updateGameMovement();
+      }
+
+      function resetMobileStick() {
+        mobileMoveId = null;
+
+        if (mobileMoveRotationFrame !== null) {
+          cancelAnimationFrame(mobileMoveRotationFrame);
+          mobileMoveRotationFrame = null;
         }
 
-        function isDoorwayOpening(point) {
-            if (!room) return false;
-            const doorwayWidth = 2.2;
-            const doorwayHeight = 3.5;
-            const nearNorthOrSouth = Math.min(Math.abs(point.z - roomBounds.min.z), Math.abs(point.z - roomBounds.max.z)) < 0.35;
-            const nearEastOrWest = Math.min(Math.abs(point.x - roomBounds.min.x), Math.abs(point.x - roomBounds.max.x)) < 0.35;
-            const inHeight = point.y >= roomBounds.min.y && point.y <= roomBounds.min.y + doorwayHeight;
-            const atNorthOrSouthDoor = nearNorthOrSouth && Math.abs(point.x - roomBounds.getCenter(new THREE.Vector3()).x) < doorwayWidth / 2;
-            const atEastOrWestDoor = nearEastOrWest && Math.abs(point.z - roomBounds.getCenter(new THREE.Vector3()).z) < doorwayWidth / 2;
-            return inHeight && (atNorthOrSouthDoor || atEastOrWestDoor);
+        mobileMove.x = 0;
+        mobileMove.y = 0;
+        ui.mobileStick.style.setProperty('--stick-x', '0px');
+        ui.mobileStick.style.setProperty('--stick-y', '0px');
+        updateGameMovement();
+      }
+
+      ui.mobileStick?.addEventListener('pointerdown', (event) => {
+        mobileActive = true;
+        mobileMoveId = event.pointerId;
+        ui.mobileStick.setPointerCapture(event.pointerId);
+        updateMobileStick(event);
+        updateMobileMoveRotation();
+      });
+
+      ui.mobileStick?.addEventListener('pointermove', (event) => {
+        if (event.pointerId === mobileMoveId) updateMobileStick(event);
+      });
+
+      ui.mobileStick?.addEventListener('pointerup', resetMobileStick);
+      ui.mobileStick?.addEventListener('pointercancel', resetMobileStick);
+
+      ui.mobileLook?.addEventListener('pointerdown', (event) => {
+        mobileActive = true;
+        mobileLookId = event.pointerId;
+        lastLookX = event.clientX;
+        lastLookY = event.clientY;
+        ui.mobileLook.setPointerCapture(event.pointerId);
+      });
+
+      ui.mobileLook?.addEventListener('pointermove', (event) => {
+        if (event.pointerId !== mobileLookId) return;
+
+        const movementX = event.clientX - lastLookX;
+        const movementY = event.clientY - lastLookY;
+
+        if (isPCGameActive()) {
+          sendGameMouse(0, 'mousemove', movementX, movementY);
+        } else if (!gameActive) {
+          camera.rotation.y -= movementX * 0.006;
+          camera.rotation.x -= movementY * 0.006;
+          camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
         }
 
-        function floorHeight(position) {
-            const origin = new THREE.Vector3(position.x, position.y + 0.2, position.z);
-            raycaster.set(origin, new THREE.Vector3(0, -1, 0));
-            raycaster.far = player.eyeHeight + 0.4;
-            const hit = raycaster.intersectObjects(collisionMeshes, false)[0];
-            return hit ? hit.point.y : null;
+        lastLookX = event.clientX;
+        lastLookY = event.clientY;
+      });
+
+      const endMobileLook = () => { mobileLookId = null; };
+      ui.mobileLook?.addEventListener('pointerup', endMobileLook);
+      ui.mobileLook?.addEventListener('pointercancel', endMobileLook);
+      ui.mobileInteract?.addEventListener('click', activateInteraction);
+
+      bindGameButton(ui.mobileLeftClick, 0);
+      bindGameButton(ui.mobileRightClick, 2);
+
+      ui.mobileSpace?.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        setGameKey('Space', true);
+      });
+      ui.mobileSpace?.addEventListener('pointerup', (event) => {
+        event.preventDefault();
+        setGameKey('Space', false);
+      });
+      ui.mobileSpace?.addEventListener('pointercancel', (event) => {
+        event.preventDefault();
+        setGameKey('Space', false);
+      });
+
+      function getXRGamepad(controllerIndex) {
+        return renderer.xr.getController(controllerIndex)?.inputSource?.gamepad;
+      }
+
+      function updateXRControls() {
+        if (!renderer.xr.isPresenting) return { x: 0, z: 0 };
+
+        const leftGamepad = getXRGamepad(0);
+        const rightGamepad = getXRGamepad(1);
+
+        if (rightGamepad) {
+          const turn = rightGamepad.axes[2] || 0;
+          const look = rightGamepad.axes[3] || 0;
+          camera.rotation.y -= turn * 0.035;
+          camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x + look * 0.02));
         }
 
-        function movePlayer(delta) {
-            if (gameActive || (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting)) return;
+        return leftGamepad ? { x: leftGamepad.axes[2] || 0, z: leftGamepad.axes[3] || 0 } : { x: 0, z: 0 };
+      }
 
-            const xrMovement = updateXRControls();
-            const movementX = mobileActive ? mobileMove.x : xrMovement.x;
-            const movementZ = mobileActive ? mobileMove.y : xrMovement.z;
+      xrControllers.forEach((controller) => {
+        controller.addEventListener('selectstart', activateInteraction);
+        scene.add(controller);
+      });
 
-            const direction = new THREE.Vector3(
-                (Number(keys.has('KeyD')) - Number(keys.has('KeyA'))) || movementX,
-                0,
-                (Number(keys.has('KeyS')) - Number(keys.has('KeyW'))) || movementZ
-            );
-            if (direction.lengthSq() > 0) direction.normalize();
-            direction.applyQuaternion(camera.quaternion);
-            direction.y = 0;
-            if (direction.lengthSq() > 0) direction.normalize();
+      renderer.xr.addEventListener('sessionstart', () => {
+        mobileActive = false;
+        ui.instructions.style.display = 'none';
+      });
 
-            player.velocity.x = direction.x * player.speed;
-            player.velocity.z = direction.z * player.speed;
-            player.velocity.y -= 9.8 * delta;
+      const player = {
+        height: 1.7,
+        radius: 0.32,
+        speed: 4.5,
+        eyeHeight: 1.55,
+        velocity: new THREE.Vector3(),
+        onFloor: false,
+        spawn: new THREE.Vector3(0, 1.55, 0)
+      };
 
-            const position = camera.position;
-            const horizontalMove = new THREE.Vector3(player.velocity.x * delta, 0, player.velocity.z * delta);
-            const horizontalDistance = horizontalMove.length();
-            if (horizontalDistance > 0) {
-                const horizontalDirection = horizontalMove.clone().normalize();
-                if (!horizontalBlocked(position, horizontalDirection, horizontalDistance + player.radius)) {
-                    position.add(horizontalMove);
-                }
-            }
-
-            const ground = floorHeight(position);
-            const nextY = position.y + player.velocity.y * delta;
-            if (ground !== null && player.velocity.y <= 0 && nextY - player.eyeHeight <= ground + 0.08) {
-                position.y = ground + player.eyeHeight;
-                player.onFloor = true;
-                player.velocity.y = 0;
-            } else {
-                position.y = nextY;
-                player.onFloor = false;
-            }
-
-            if (position.y < -20) position.copy(player.spawn);
+      document.addEventListener('keydown', (event) => {
+        const usableScreen = getUsableScreen();
+        if (event.code === 'KeyE' && usableScreen) {
+          event.preventDefault();
+          activateInteraction();
+          return;
         }
 
-        // FPS meter
-        const stats = new Stats();
-        stats.showPanel(0);
-        document.body.appendChild(stats.dom);
+        keys.add(event.code);
+        if (event.code === 'Space' && player.onFloor) player.velocity.y = 5;
+      });
 
+      document.addEventListener('keyup', (event) => keys.delete(event.code));
 
-        // make bg white
-        // sky blue
-         renderer.setClearColor(0x87ceeb, 1);
+      function horizontalBlocked(position, direction, distance) {
+        const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+        const offsets = [-player.radius * 0.8, 0, player.radius * 0.8];
+        const heights = [0.12, player.eyeHeight, player.height - 0.12];
 
-        // Load the room and build world-space AABB colliders from its meshes.
-        const loader = new GLTFLoader();
-        loader.load('./white_round_exhibition_gallery.glb', (gltf) => {
-            room = gltf.scene;
-            const sourceBounds = new THREE.Box3().setFromObject(gltf.scene);
-            const sourceSize = sourceBounds.getSize(new THREE.Vector3());
-            const sourceWidth = Math.max(sourceSize.x, sourceSize.z);
-            const roomScale = sourceWidth > 0 ? Math.min(5, 30 / sourceWidth) : 1;
-            gltf.scene.scale.setScalar(roomScale);
-            gltf.scene.updateMatrixWorld(true);
-            gltf.scene.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                    collisionMeshes.push(child);
-                }
-            });
-            scene.add(gltf.scene);
+        for (const offset of offsets) {
+          for (const height of heights) {
+            const origin = new THREE.Vector3(position.x, position.y - player.eyeHeight + height, position.z)
+              .addScaledVector(perpendicular, offset);
+            raycaster.set(origin, direction);
+            raycaster.far = distance + 0.05;
+            const hit = raycaster.intersectObjects(collisionMeshes, false).find((intersection) => !isDoorwayOpening(intersection.point));
+            if (hit) return true;
+          }
+        }
 
-            // set wall color to red (Wall_0_grp is a group, so apply to its meshes)
-            const wall = room.getObjectByName('Wall_0_grp');
-            if (wall?.children[0]?.isMesh) {
-                wall.children[0].material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-            }
+        return false;
+      }
 
-            roomBounds.setFromObject(gltf.scene);
-            const roomCenter = roomBounds.getCenter(new THREE.Vector3());
-            player.spawn.set(roomCenter.x, roomBounds.min.y + player.eyeHeight + 0.08, roomCenter.z);
-            camera.position.copy(player.spawn);
-            placePortals(roomBounds);
+      function isDoorwayOpening(point) {
+        if (!room) return false;
+
+        const doorwayWidth = 2.2;
+        const doorwayHeight = 3.5;
+        const nearNorthOrSouth = Math.min(Math.abs(point.z - roomBounds.min.z), Math.abs(point.z - roomBounds.max.z)) < 0.35;
+        const nearEastOrWest = Math.min(Math.abs(point.x - roomBounds.min.x), Math.abs(point.x - roomBounds.max.x)) < 0.35;
+        const inHeight = point.y >= roomBounds.min.y && point.y <= roomBounds.min.y + doorwayHeight;
+        const center = roomBounds.getCenter(new THREE.Vector3());
+        const atNorthOrSouthDoor = nearNorthOrSouth && Math.abs(point.x - center.x) < doorwayWidth / 2;
+        const atEastOrWestDoor = nearEastOrWest && Math.abs(point.z - center.z) < doorwayWidth / 2;
+
+        return inHeight && (atNorthOrSouthDoor || atEastOrWestDoor);
+      }
+
+      function floorHeight(position) {
+        const origin = new THREE.Vector3(position.x, position.y + 0.2, position.z);
+        raycaster.set(origin, new THREE.Vector3(0, -1, 0));
+        raycaster.far = player.eyeHeight + 0.4;
+        const hit = raycaster.intersectObjects(collisionMeshes, false)[0];
+        return hit ? hit.point.y : null;
+      }
+
+      function movePlayer(delta) {
+        if (gameActive || (!controls.isLocked && !mobileActive && !renderer.xr.isPresenting)) return;
+
+        const xrMovement = updateXRControls();
+        const movementX = mobileActive ? mobileMove.x : xrMovement.x;
+        const movementZ = mobileActive ? mobileMove.y : xrMovement.z;
+
+        const direction = new THREE.Vector3(
+          (Number(keys.has('KeyD')) - Number(keys.has('KeyA'))) || movementX,
+          0,
+          (Number(keys.has('KeyS')) - Number(keys.has('KeyW'))) || movementZ
+        );
+
+        if (direction.lengthSq() > 0) direction.normalize();
+        direction.applyQuaternion(camera.quaternion);
+        direction.y = 0;
+        if (direction.lengthSq() > 0) direction.normalize();
+
+        player.velocity.x = direction.x * player.speed;
+        player.velocity.z = direction.z * player.speed;
+        player.velocity.y -= 9.8 * delta;
+
+        const position = camera.position;
+        const horizontalMove = new THREE.Vector3(player.velocity.x * delta, 0, player.velocity.z * delta);
+        const horizontalDistance = horizontalMove.length();
+
+        if (horizontalDistance > 0) {
+          const horizontalDirection = horizontalMove.clone().normalize();
+          if (!horizontalBlocked(position, horizontalDirection, horizontalDistance + player.radius)) {
+            position.add(horizontalMove);
+          }
+        }
+
+        const ground = floorHeight(position);
+        const nextY = position.y + player.velocity.y * delta;
+
+        if (ground !== null && player.velocity.y <= 0 && nextY - player.eyeHeight <= ground + 0.08) {
+          position.y = ground + player.eyeHeight;
+          player.onFloor = true;
+          player.velocity.y = 0;
+        } else {
+          position.y = nextY;
+          player.onFloor = false;
+        }
+
+        if (position.y < -20) position.copy(player.spawn);
+      }
+
+      const stats = new Stats();
+      stats.showPanel(0);
+      document.body.appendChild(stats.dom);
+      renderer.setClearColor(0x87ceeb, 1);
+
+      const loader = new GLTFLoader();
+      loader.load('./white_round_exhibition_gallery.glb', (gltf) => {
+        room = gltf.scene;
+        const sourceBounds = new THREE.Box3().setFromObject(gltf.scene);
+        const sourceSize = sourceBounds.getSize(new THREE.Vector3());
+        const sourceWidth = Math.max(sourceSize.x, sourceSize.z);
+        const roomScale = sourceWidth > 0 ? Math.min(5, 30 / sourceWidth) : 1;
+
+        gltf.scene.scale.setScalar(roomScale);
+        gltf.scene.updateMatrixWorld(true);
+        gltf.scene.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+            collisionMeshes.push(child);
+          }
         });
 
+        scene.add(gltf.scene);
 
-        // soft sky/ground ambient fill
-        const hemiLight = new THREE.HemisphereLight(0xbdd7ff, 0x444433, 1.2);
-        scene.add(hemiLight);
+        const wall = room.getObjectByName('Wall_0_grp');
+        if (wall?.children[0]?.isMesh) {
+          wall.children[0].material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        }
 
-        // gentle overall fill so shadows aren't pure black
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        roomBounds.setFromObject(gltf.scene);
+        const roomCenter = roomBounds.getCenter(new THREE.Vector3());
+        player.spawn.set(roomCenter.x, roomBounds.min.y + player.eyeHeight + 0.08, roomCenter.z);
+        camera.position.copy(player.spawn);
+        placePortals(roomBounds);
+      });
 
-        // key light (sun) with soft shadows
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
-        directionalLight.position.set(5, 10, 7);
-        //directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.set(2048, 2048);
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 50;
-        directionalLight.shadow.camera.left = -15;
-        directionalLight.shadow.camera.right = 15;
-        directionalLight.shadow.camera.top = 15;
-        directionalLight.shadow.camera.bottom = -15;
-        directionalLight.shadow.bias = -0.0005;
-        scene.add(directionalLight);
+      const hemiLight = new THREE.HemisphereLight(0xbdd7ff, 0x444433, 1.2);
+      scene.add(hemiLight);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 
-        renderer.setAnimationLoop(function () {
-            const delta = Math.min(clock.getDelta(), 0.05);
-            updateCameraFocus(delta);
-            movePlayer(delta);
-            updateGameScreen();
-            stats.begin();
-            renderer.render(scene, camera);
-            stats.end();
-        });
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 2.5);
+      directionalLight.position.set(5, 10, 7);
+      directionalLight.shadow.mapSize.set(2048, 2048);
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 50;
+      directionalLight.shadow.camera.left = -15;
+      directionalLight.shadow.camera.right = 15;
+      directionalLight.shadow.camera.top = 15;
+      directionalLight.shadow.camera.bottom = -15;
+      directionalLight.shadow.bias = -0.0005;
+      scene.add(directionalLight);
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            if (gameActive) resizeGameWindow();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+      setupRenderer();
+      buildUi();
+      buildPortals();
+
+      renderer.setAnimationLoop(() => {
+        const delta = Math.min(clock.getDelta(), 0.05);
+        updateCameraFocus(delta);
+        movePlayer(delta);
+        updateGameScreen();
+        stats.begin();
+        renderer.render(scene, camera);
+        stats.end();
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        if (gameActive) resizeGameWindow();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
     </script>
-    <body>
-    </body>
+  </body>
 </html>
