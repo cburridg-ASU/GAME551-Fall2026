@@ -76,6 +76,12 @@
         pointer-events: none;
       }
 
+      .game-screen {
+        display: none;
+        border: 0;
+        background: #050505;
+      }
+
       #screen-prompt {
         position: fixed;
         left: 50%;
@@ -304,41 +310,92 @@
       ];
 
       function buildPortals() {
-        for (const config of portalConfigs) {
-          const screenWidth = screenHeight * (config.width / config.height);
-          const screen = new THREE.Group();
-          const screenFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(screenWidth + 0.35, screenHeight + 0.35, 0.18),
-            new THREE.MeshStandardMaterial({ color: 0x101318, metalness: 0.5, roughness: 0.35 })
-          );
-          const screenSurface = new THREE.Mesh(
-            new THREE.PlaneGeometry(screenWidth, screenHeight),
-            new THREE.MeshBasicMaterial({ color: 0x050505 })
-          );
+        const arcadeLoader = new GLTFLoader();
+        arcadeLoader.load('./Models/arcade_machine/scene.gltf', (gltf) => {
+          const sourceBounds = new THREE.Box3().setFromObject(gltf.scene);
+          const sourceSize = sourceBounds.getSize(new THREE.Vector3());
+          const cabinetHeight = 3.1;
+          const cabinetScale = cabinetHeight / sourceSize.y;
 
-          screenSurface.position.z = 0.1;
-          screen.add(screenFrame, screenSurface);
+          for (const config of portalConfigs) {
+            const cabinet = gltf.scene.clone(true);
+            cabinet.scale.setScalar(cabinetScale);
+            cabinet.rotation.y = config.rotation;
+            cabinet.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
 
-          const signMaterial = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            depthTest: true,
-            side: THREE.DoubleSide
-          });
-          const sign = new THREE.Mesh(new THREE.PlaneGeometry(signWidth, signHeight), signMaterial);
-          sign.position.set(0, screenHeight / 2 + signHeight / 2 + 0.35, 0.45);
+            let screenSurface;
+            cabinet.traverse((child) => {
+              if (!screenSurface && child.isMesh && child.material?.name === 'SCREEN') {
+                screenSurface = child;
+              }
+            });
+            if (!screenSurface?.isMesh) {
+              console.error('Arcade cabinet screen mesh was not found.');
+              return;
+            }
 
-          textureLoader.load(config.thumbnail, (texture) => {
-            texture.colorSpace = THREE.SRGBColorSpace;
-            signMaterial.map = texture;
-            signMaterial.needsUpdate = true;
-          });
+            const screenBounds = new THREE.Box3().setFromObject(screenSurface);
+            const screenSize = screenBounds.getSize(new THREE.Vector3());
+            const screenWidth = Math.max(screenSize.x, screenSize.y);
+            const screenHeightLocal = Math.min(screenSize.x, screenSize.y);
+            const cabinetBounds = new THREE.Box3().setFromObject(cabinet);
+            const signMaterial = new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              transparent: true,
+              depthTest: true,
+              side: THREE.DoubleSide
+            });
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(signWidth, signHeight), signMaterial);
+            sign.position.set(
+              0,
+              sourceBounds.max.y * cabinetScale + signHeight / 2 + 0.18,
+              sourceBounds.max.z * cabinetScale + 0.05
+            );
+            cabinet.add(sign);
+            textureLoader.load(config.thumbnail, (texture) => {
+              texture.colorSpace = THREE.SRGBColorSpace;
+              signMaterial.map = texture;
+              signMaterial.needsUpdate = true;
+            });
+            const iframe = document.createElement('iframe');
+            iframe.className = 'game-screen';
+            iframe.src = 'about:blank';
+            iframe.allow = 'fullscreen; autoplay; gamepad';
+            iframe.allowFullscreen = true;
+            iframe.title = config.title;
+            iframe.style.position = 'fixed';
+            iframe.style.zIndex = '3';
+            iframe.style.border = '0';
+            iframe.style.background = '#050505';
+            iframe.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.45)';
+            iframe.style.width = `${config.width}px`;
+            iframe.style.height = `${config.height}px`;
+            iframe.style.pointerEvents = 'none';
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
+            scene.add(cabinet);
+            screens.push({
+              config,
+              screen: cabinet,
+              screenFrame: cabinet,
+              screenSurface,
+              iframe,
+              width: screenWidth,
+              screenHeight: screenHeightLocal,
+              halfWidth: (cabinetBounds.max.x - cabinetBounds.min.x) / 2,
+              halfDepth: (cabinetBounds.max.z - cabinetBounds.min.z) / 2,
+              centerY: -(cabinetBounds.min.y + cabinetBounds.max.y) / 2,
+              height: cabinetBounds.max.y - cabinetBounds.min.y
+            });
+          }
 
-          screen.rotation.y = config.rotation;
-          screen.add(sign);
-          scene.add(screen);
-          screens.push({ config, screen, screenFrame, screenSurface, width: screenWidth });
-        }
+          placePortals(roomBounds);
+        });
       }
 
       const focus = {
@@ -372,13 +429,16 @@
 
         const verticalFov = THREE.MathUtils.degToRad(camera.fov);
         const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
-        const verticalDistance = (screenHeight / 2) / Math.tan(verticalFov / 2);
+        const verticalDistance = (entry.screenHeight / 2) / Math.tan(verticalFov / 2);
         const horizontalDistance = (entry.width / 2) / Math.tan(horizontalFov / 2);
-        const distance = Math.max(verticalDistance, horizontalDistance) * 1.12;
+        const distance = Math.min(Math.max(verticalDistance, horizontalDistance) * 1.05, 1.45);
 
         focus.startPosition.copy(camera.position);
         focus.startQuaternion.copy(camera.quaternion);
         focus.targetPosition.copy(center).addScaledVector(normal, distance);
+        focus.targetPosition.x = THREE.MathUtils.clamp(focus.targetPosition.x, roomBounds.min.x + 0.65, roomBounds.max.x - 0.65);
+        focus.targetPosition.y = THREE.MathUtils.clamp(focus.targetPosition.y, roomBounds.min.y + 1.55, roomBounds.max.y - 0.65);
+        focus.targetPosition.z = THREE.MathUtils.clamp(focus.targetPosition.z, roomBounds.min.z + 0.65, roomBounds.max.z - 0.65);
 
         const focusedCamera = camera.clone();
         focusedCamera.position.copy(focus.targetPosition);
@@ -388,13 +448,12 @@
         focus.active = true;
         activePortal = entry;
         gameActive = false;
+        entry.iframe.style.display = 'block';
+        entry.iframe.style.pointerEvents = 'auto';
         ui.gameIframe.style.display = 'none';
-        ui.gameIframe.title = entry.config.title;
         ui.screenPrompt.textContent = `Press E to play ${entry.config.title}`;
-        if (!gameLoaded) {
-          ui.gameIframe.src = entry.config.source;
-          gameLoaded = true;
-        }
+        entry.iframe.src = entry.config.source;
+        gameLoaded = true;
         controls.unlock();
       }
 
@@ -409,15 +468,17 @@
         if (focus.progress >= 1) {
           focus.active = false;
           gameActive = true;
-          ui.gameIframe.style.pointerEvents = 'auto';
-          resizeGameWindow();
-          ui.gameIframe.focus();
+          activePortal.iframe.focus();
         }
       }
 
       function updateGameScreen() {
-        ui.gameIframe.style.display = gameActive ? 'block' : 'none';
-        ui.gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+        for (const entry of screens) {
+          const active = entry === activePortal && gameActive;
+          entry.iframe.style.display = active ? 'block' : 'none';
+          entry.iframe.style.pointerEvents = active ? 'auto' : 'none';
+          if (active) positionIframeOnScreen(entry);
+        }
 
         const nearbyScreen = getUsableScreen();
         ui.screenPrompt.textContent = nearbyScreen ? `Press E to play ${nearbyScreen.config.title}` : '';
@@ -428,16 +489,37 @@
       }
 
       function resizeGameWindow() {
-        const nativeWidth = activePortal?.config.width || 1;
-        const nativeHeight = activePortal?.config.height || 1;
-        const scale = Math.min((window.innerWidth * 0.78) / nativeWidth, (window.innerHeight * 0.88) / nativeHeight);
-        const width = nativeWidth * scale;
-        const height = nativeHeight * scale;
+        if (activePortal) positionIframeOnScreen(activePortal);
+      }
 
-        ui.gameIframe.style.left = `${(window.innerWidth - width) / 2}px`;
-        ui.gameIframe.style.top = `${(window.innerHeight - height) / 2}px`;
-        ui.gameIframe.style.width = `${width}px`;
-        ui.gameIframe.style.height = `${height}px`;
+      function positionIframeOnScreen(entry) {
+        entry.screenSurface.geometry.computeBoundingBox();
+        const bounds = entry.screenSurface.geometry.boundingBox;
+        const corners = [
+          new THREE.Vector3(bounds.min.x, bounds.min.y, bounds.min.z),
+          new THREE.Vector3(bounds.max.x, bounds.min.y, bounds.max.z),
+          new THREE.Vector3(bounds.min.x, bounds.max.y, bounds.min.z),
+          new THREE.Vector3(bounds.max.x, bounds.max.y, bounds.max.z)
+        ];
+        const projected = corners.map((corner) => entry.screenSurface.localToWorld(corner.clone()).project(camera));
+        const screenLeft = Math.min(...projected.map((point) => (point.x + 1) * window.innerWidth / 2));
+        const screenRight = Math.max(...projected.map((point) => (point.x + 1) * window.innerWidth / 2));
+        const screenTop = Math.min(...projected.map((point) => (1 - point.y) * window.innerHeight / 2));
+        const screenBottom = Math.max(...projected.map((point) => (1 - point.y) * window.innerHeight / 2));
+        const screenCenterX = (screenLeft + screenRight) / 2;
+        const screenCenterY = (screenTop + screenBottom) / 2;
+        const screenBoxWidth = Math.max(1, screenRight - screenLeft);
+        const screenBoxHeight = Math.max(1, screenBottom - screenTop);
+        const nativeAspect = entry.config.width / entry.config.height;
+        const displayWidth = Math.min(screenBoxWidth, screenBoxHeight * nativeAspect);
+        const scale = Math.max(0.01, displayWidth / entry.config.width);
+
+        entry.iframe.style.left = `${screenCenterX - entry.config.width / 2}px`;
+        entry.iframe.style.top = `${screenCenterY - entry.config.height / 2}px`;
+        entry.iframe.style.width = `${entry.config.width}px`;
+        entry.iframe.style.height = `${entry.config.height}px`;
+        entry.iframe.style.transformOrigin = 'center center';
+        entry.iframe.style.transform = `scale(${scale})`;
       }
 
       function canUseScreen(entry) {
@@ -454,26 +536,36 @@
       function placePortals(bounds) {
         const center = bounds.getCenter(new THREE.Vector3());
         const floor = bounds.min.y;
-        const wallOffset = 0.18;
-        const portalY = floor + screenHeight / 2 + 0.08;
+        const wallOffset = 0.12;
+        const cabinetInset = 0.9;
+        const groundLift = 0.65;
         const placements = {
-          north: [center.x, portalY, bounds.min.z + wallOffset],
-          south: [center.x, portalY, bounds.max.z - wallOffset],
-          east: [bounds.max.x - wallOffset, portalY, center.z],
-          west: [bounds.min.x + wallOffset, portalY, center.z]
+          north: [center.x, floor, bounds.min.z],
+          south: [center.x, floor, bounds.max.z],
+          east: [bounds.max.x, floor, center.z],
+          west: [bounds.min.x, floor, center.z]
         };
 
         for (const entry of screens) {
-          entry.screen.position.set(...placements[entry.config.id]);
+          const [x, , z] = placements[entry.config.id];
+          const position = { x, y: floor + entry.centerY + entry.height / 2 + groundLift, z };
+          if (entry.config.id === 'north') position.z += entry.halfDepth + wallOffset + cabinetInset;
+          if (entry.config.id === 'south') position.z -= entry.halfDepth + wallOffset + cabinetInset;
+          if (entry.config.id === 'east') position.x -= entry.halfWidth + wallOffset + cabinetInset;
+          if (entry.config.id === 'west') position.x += entry.halfWidth + wallOffset + cabinetInset;
+          entry.screen.position.set(position.x, position.y, position.z);
+          entry.screen.updateMatrixWorld(true);
         }
       }
 
       function closeGame() {
         releaseGameInputs();
         gameActive = false;
-        ui.gameIframe.style.display = 'none';
-        ui.gameIframe.style.pointerEvents = 'none';
-        ui.gameIframe.src = 'about:blank';
+        if (activePortal) {
+          activePortal.iframe.style.display = 'none';
+          activePortal.iframe.style.pointerEvents = 'none';
+          activePortal.iframe.src = 'about:blank';
+        }
         gameLoaded = false;
         activePortal = null;
         keys.clear();
@@ -513,7 +605,9 @@
       document.addEventListener('pointerlockchange', () => {
         controls.isLocked = document.pointerLockElement === renderer.domElement;
         ui.instructions.style.display = 'none';
-        ui.gameIframe.style.pointerEvents = gameActive ? 'auto' : 'none';
+        if (!gameActive && activePortal) {
+          activePortal.iframe.style.pointerEvents = 'none';
+        }
 
         if (!controls.isLocked && !gameActive && room) {
           keys.clear();
@@ -542,7 +636,7 @@
 
       function gameDocument() {
         try {
-          return ui.gameIframe.contentDocument;
+          return activePortal?.iframe.contentDocument || null;
         } catch {
           return null;
         }
@@ -591,7 +685,7 @@
         if (!isPCGameActive()) return;
 
         if (activePortal.config.id === 'east') {
-          ui.gameIframe.contentWindow?.postMessage({ type: 'thos-movement', x: mobileMove.x, y: mobileMove.y }, '*');
+          activePortal.iframe.contentWindow?.postMessage({ type: 'thos-movement', x: mobileMove.x, y: mobileMove.y }, '*');
         }
 
         setGameKey('KeyA', mobileMove.x < -0.25);
