@@ -441,7 +441,6 @@
             if (!isPCGameActive()) return;
             if (activePortal.config.id === 'east') {
                 gameIframe.contentWindow?.postMessage({ type: 'thos-movement', x: mobileMove.x, y: mobileMove.y }, '*');
-                return;
             }
             setGameKey('KeyA', mobileMove.x < -0.25);
             setGameKey('KeyD', mobileMove.x > 0.25);
