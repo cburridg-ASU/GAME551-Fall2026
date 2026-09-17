@@ -96,9 +96,13 @@
             #mobile-stick::after {
                 content: '';
                 position: absolute;
-                inset: 2rem;
+                top: 50%;
+                left: 50%;
+                width: 3rem;
+                height: 3rem;
                 border-radius: 50%;
                 background: rgb(255 255 255 / 55%);
+                transform: translate(calc(-50% + var(--stick-x, 0px)), calc(-50% + var(--stick-y, 0px)));
             }
             #mobile-interact {
                 position: absolute;
@@ -472,6 +476,16 @@
             const radius = bounds.width / 2;
             mobileMove.x = Math.max(-1, Math.min(1, (event.clientX - (bounds.left + radius)) / radius));
             mobileMove.y = Math.max(-1, Math.min(1, (event.clientY - (bounds.top + radius)) / radius));
+            mobileStick.style.setProperty('--stick-x', `${mobileMove.x * (radius - 24)}px`);
+            mobileStick.style.setProperty('--stick-y', `${mobileMove.y * (radius - 24)}px`);
+            updateGameMovement();
+        }
+        function resetMobileStick() {
+            mobileMoveId = null;
+            mobileMove.x = 0;
+            mobileMove.y = 0;
+            mobileStick.style.setProperty('--stick-x', '0px');
+            mobileStick.style.setProperty('--stick-y', '0px');
             updateGameMovement();
         }
         mobileStick.addEventListener('pointerdown', (event) => {
@@ -483,18 +497,8 @@
         mobileStick.addEventListener('pointermove', (event) => {
             if (event.pointerId === mobileMoveId) updateMobileStick(event);
         });
-        mobileStick.addEventListener('pointerup', () => {
-            mobileMoveId = null;
-            mobileMove.x = 0;
-            mobileMove.y = 0;
-            updateGameMovement();
-        });
-        mobileStick.addEventListener('pointercancel', () => {
-            mobileMoveId = null;
-            mobileMove.x = 0;
-            mobileMove.y = 0;
-            updateGameMovement();
-        });
+        mobileStick.addEventListener('pointerup', resetMobileStick);
+        mobileStick.addEventListener('pointercancel', resetMobileStick);
         mobileLook.addEventListener('pointerdown', (event) => {
             mobileActive = true;
             mobileLookId = event.pointerId;
