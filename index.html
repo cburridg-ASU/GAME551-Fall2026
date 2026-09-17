@@ -203,6 +203,7 @@
         const mobileMove = { x: 0, y: 0 };
         let mobileLookId = null;
         let mobileMoveId = null;
+        let mobileMoveRotationFrame = null;
         let lastLookX = 0;
         let lastLookY = 0;
         const pcGameIds = new Set(['north', 'east']);
@@ -458,6 +459,14 @@
             setGameKey('KeyW', mobileMove.y < -0.25);
             setGameKey('KeyS', mobileMove.y > 0.25);
         }
+        function updateMobileMoveRotation() {
+            if (mobileMoveId === null || !isPCGameActive() || activePortal.config.id !== 'east') {
+                mobileMoveRotationFrame = null;
+                return;
+            }
+            sendGameMouse(0, 'mousemove', mobileMove.x * 4, 0);
+            mobileMoveRotationFrame = requestAnimationFrame(updateMobileMoveRotation);
+        }
         function releaseGameInputs() {
             for (const code of gameKeys) sendGameKey(code, 'keyup');
             gameKeys.clear();
@@ -496,6 +505,10 @@
         }
         function resetMobileStick() {
             mobileMoveId = null;
+            if (mobileMoveRotationFrame !== null) {
+                cancelAnimationFrame(mobileMoveRotationFrame);
+                mobileMoveRotationFrame = null;
+            }
             mobileMove.x = 0;
             mobileMove.y = 0;
             mobileStick.style.setProperty('--stick-x', '0px');
@@ -507,6 +520,7 @@
             mobileMoveId = event.pointerId;
             mobileStick.setPointerCapture(event.pointerId);
             updateMobileStick(event);
+            updateMobileMoveRotation();
         });
         mobileStick.addEventListener('pointermove', (event) => {
             if (event.pointerId === mobileMoveId) updateMobileStick(event);
