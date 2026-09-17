@@ -422,10 +422,21 @@
             if (!target) return;
             const key = code === 'Space' ? ' ' : code.replace('Key', '').toLowerCase();
             const keyCode = code === 'Space' ? 32 : code.charCodeAt(code.length - 1);
-            const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true, cancelable: true });
-            Object.defineProperty(event, 'keyCode', { value: keyCode });
-            Object.defineProperty(event, 'which', { value: keyCode });
-            target.dispatchEvent(event);
+            const canvas = target.querySelector('#unity-canvas');
+            const windowTarget = target.defaultView;
+            const dispatch = (eventTarget) => {
+                if (!eventTarget) return;
+                const event = new KeyboardEvent(type, { code, key, keyCode, which: keyCode, bubbles: true, cancelable: true });
+                Object.defineProperty(event, 'keyCode', { value: keyCode });
+                Object.defineProperty(event, 'which', { value: keyCode });
+                eventTarget.dispatchEvent(event);
+            };
+            if (canvas) {
+                canvas.focus();
+                dispatch(canvas);
+            }
+            dispatch(target);
+            dispatch(windowTarget);
         }
         function setGameKey(code, pressed) {
             if (!isPCGameActive()) return;
