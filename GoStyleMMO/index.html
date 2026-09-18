@@ -164,10 +164,10 @@
 					if (orientationPermission !== 'granted') throw new Error('Motion and compass permission was declined.');
 				}
 				await requestCamera();
+				initAR();
 				const position = await requestLocation();
 				updatePosition(position);
 				navigator.geolocation.watchPosition(updatePosition, () => { $('status-label').textContent = 'GPS RECONNECTING'; }, { enableHighAccuracy: true, maximumAge: 5000 });
-				try { initAR(); } catch (error) { setError('AR camera startup failed: ' + permissionError(error)); }
 			} catch (error) { setError(permissionError(error)); }
 		}
 
