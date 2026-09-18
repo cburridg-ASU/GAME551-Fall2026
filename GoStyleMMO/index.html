@@ -101,7 +101,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 	<script>
 		'use strict';
-		const state = { origin: null, projection: null, position: null, heading: 0, lastFetch: null, satelliteData: null, terrainPromise: null, spawns: [], scene: null, camera: null, renderer: null, locationBased: null, webcam: null, orientation: null, gpsUpdates: 0, orientationUpdates: 0, lastOrientation: null };
+		const state = { origin: null, projection: null, position: null, heading: 0, lastFetch: null, terrainPromise: null, gpsWatch: null, gpsPoll: null, gpsPollBusy: false, satelliteData: null, spawns: [], scene: null, camera: null, renderer: null, locationBased: null, webcam: null, orientation: null, gpsUpdates: 0, orientationUpdates: 0, lastOrientation: null };
 		const $ = (id) => document.getElementById(id);
 
 		class GeoProjectionEngine {
@@ -127,6 +127,8 @@
 		function validPosition(position) { return position && position.coords && Number.isFinite(position.coords.latitude) && position.coords.accuracy <= 100; }
 		function permissionError(error) { const name = error && error.name ? ' (' + error.name + ')' : ''; return error && error.message ? error.message + name : 'The browser did not grant this sensor permission.'; }
 		function requestLocation() { return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })); }
+		const locationOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+		function startLocationTracking() { if (state.gpsWatch !== null) navigator.geolocation.clearWatch(state.gpsWatch); state.gpsWatch = navigator.geolocation.watchPosition(updatePosition, (error) => devLog('GPS watch error: ' + error.message + ' (' + error.code + ')', 'error'), locationOptions); state.gpsPoll = setInterval(() => { if (state.gpsPollBusy) return; state.gpsPollBusy = true; navigator.geolocation.getCurrentPosition((position) => { state.gpsPollBusy = false; updatePosition(position); }, (error) => { state.gpsPollBusy = false; devLog('GPS poll error: ' + error.message + ' (' + error.code + ')', 'error'); }, locationOptions); }, 3000); devLog('GPS tracking started: watch + 3s poll'); }
 		async function requestCamera() { if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera access requires an HTTPS GitHub Pages URL or localhost.'); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); stream.getTracks().forEach((track) => track.stop()); }
 
 		function drawMiniMap(data) {
@@ -182,7 +184,7 @@
 				initAR();
 				const position = await requestLocation();
 				updatePosition(position);
-				navigator.geolocation.watchPosition(updatePosition, () => { $('status-label').textContent = 'GPS RECONNECTING'; }, { enableHighAccuracy: true, maximumAge: 5000 });
+				startLocationTracking();
 			} catch (error) { setError(permissionError(error)); }
 		}
 
