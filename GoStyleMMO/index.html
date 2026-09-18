@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+	<meta name="theme-color" content="#07151a">
+	<title>GoStyle MMO | Field Scanner</title>
+	<style>
+		@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+		:root {
+			--ink: #d8f3e4;
+			--muted: #7fa799;
+			--line: rgba(168, 240, 196, .22);
+			--acid: #bafc80;
+			--cyan: #5de7e2;
+			--water: #54b8ff;
+			--alert: #ffbe6b;
+			--panel: rgba(5, 22, 24, .78);
+		}
+
+		* { box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07151a; color: var(--ink); }
+		body { font-family: 'Space Mono', monospace; }
+		#ar-scene, #ar-scene canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+		#ar-scene video { object-fit: cover; }
+		.screen { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+		.screen::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2, 15, 18, .68), transparent 27%, transparent 67%, rgba(2, 15, 18, .86)); }
+		.hud { position: absolute; inset: 0; padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; justify-content: space-between; }
+		.topbar, .bottom-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+		.brand { display: flex; align-items: center; gap: 10px; }
+		.brand-mark { width: 29px; height: 29px; border: 1px solid var(--acid); display: grid; place-items: center; color: var(--acid); font-weight: 700; transform: rotate(45deg); }
+		.brand-mark span { transform: rotate(-45deg); }
+		.eyebrow { color: var(--acid); font-size: 10px; letter-spacing: .15em; }
+		.title { margin-top: 3px; font: 700 22px/1 'Barlow Condensed', sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+		.readout { text-align: right; font-size: 10px; line-height: 1.7; color: var(--muted); }
+		.readout strong { color: var(--ink); font-size: 12px; }
+		.reticle { position: absolute; top: 44%; left: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); border: 1px solid rgba(186, 252, 128, .48); border-radius: 50%; }
+		.reticle::before, .reticle::after { content: ''; position: absolute; background: var(--acid); opacity: .7; }
+		.reticle::before { width: 1px; height: 76px; top: -11px; left: 27px; }
+		.reticle::after { width: 76px; height: 1px; top: 27px; left: -11px; }
+		.map-panel { align-self: flex-end; width: min(180px, 44vw); aspect-ratio: 1; padding: 12px; border: 1px solid var(--line); background: rgba(5, 22, 24, .74); clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%); }
+		.map-title { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; }
+		#mini-map { display: block; width: 100%; height: calc(100% - 18px); margin-top: 6px; }
+		.status { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--muted); }
+		.status-dot { width: 7px; height: 7px; background: var(--acid); border-radius: 50%; box-shadow: 0 0 12px var(--acid); }
+		.metrics { display: flex; gap: 18px; font-size: 10px; color: var(--muted); }
+		.metrics strong { display: block; color: var(--ink); font-size: 13px; margin-top: 3px; }
+		#permission-gate { position: fixed; z-index: 5; inset: 0; display: grid; place-items: center; padding: 22px; background: radial-gradient(circle at 70% 18%, #153c38 0, #07151a 49%, #050d10 100%); }
+		.gate-card { width: min(430px, 100%); border: 1px solid var(--line); padding: 29px; background: rgba(4, 20, 22, .84); box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+		.gate-card h1 { margin: 10px 0 12px; max-width: 310px; font: 600 clamp(42px, 12vw, 64px)/.86 'Barlow Condensed', sans-serif; letter-spacing: .02em; text-transform: uppercase; }
+		.gate-card p { max-width: 340px; margin: 0 0 25px; color: var(--muted); font-size: 11px; line-height: 1.8; }
+		.permission-list { display: grid; gap: 9px; margin-bottom: 25px; color: var(--ink); font-size: 10px; }
+		.permission-list span { color: var(--acid); margin-right: 8px; }
+		button { appearance: none; border: 0; font: 700 12px 'Space Mono', monospace; cursor: pointer; }
+		#start-button { width: 100%; padding: 16px; color: #07151a; background: var(--acid); text-transform: uppercase; letter-spacing: .08em; }
+		#start-button:disabled { opacity: .55; cursor: wait; }
+		#error-message { display: none; margin-top: 13px; color: var(--alert); font-size: 10px; line-height: 1.6; }
+		.hidden { display: none !important; }
+		#toast { position: fixed; z-index: 4; left: 50%; bottom: 27%; transform: translateX(-50%); padding: 10px 14px; background: var(--acid); color: #07151a; font-size: 10px; white-space: nowrap; opacity: 0; transition: opacity .2s; }
+		#toast.show { opacity: 1; }
+	</style>
+</head>
+<body>
+	<div id="ar-scene" aria-label="Live camera AR scene"></div>
+	<div id="permission-gate">
+		<main class="gate-card">
+			<div class="eyebrow">FIELD SCANNER / BUILD 001</div>
+			<h1>Read the world.<br>Find the wild.</h1>
+			<p>A location-based XR field game that turns your surroundings into a living, low-poly map.</p>
+			<div class="permission-list"><div><span>01</span> Camera passthrough</div><div><span>02</span> GPS positioning</div><div><span>03</span> Device orientation</div></div>
+			<button id="start-button">Initialize field scanner</button>
+			<div id="error-message"></div>
+		</main>
+	</div>
+	<div id="toast"></div>
+	<div class="screen hidden" id="hud-screen">
+		<div class="hud">
+			<header class="topbar">
+				<div class="brand"><div class="brand-mark"><span>+</span></div><div><div class="eyebrow">GO / STYLE MMO</div><div class="title">Field scanner</div></div></div>
+				<div class="readout"><strong id="biome-readout">SCANNING</strong><br><span id="coords-readout">GPS --</span></div>
+			</header>
+			<div class="reticle" aria-hidden="true"></div>
+			<div class="bottom-bar">
+				<div><div class="status"><span class="status-dot"></span><span id="status-label">LINKING SATELLITE</span></div><div class="metrics"><div>RANGE<strong id="range-readout">-- M</strong></div><div>SIGNALS<strong id="spawn-readout">0 / 3</strong></div></div></div>
+				<div class="map-panel"><div class="map-title"><span>LOCAL TERRAIN</span><span id="map-intensity">--%</span></div><canvas id="mini-map" width="300" height="250"></canvas></div>
+			</div>
+		</div>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex-location-only.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+	<script>
+		'use strict';
+		const state = { origin: null, position: null, heading: 0, lastFetch: null, spawns: [], scene: null, camera: null, renderer: null, locationBased: null };
+		const $ = (id) => document.getElementById(id);
+
+		class GeoProjectionEngine {
+			constructor(originGPS) { this.originGPS = originGPS; }
+			gpsToCartesian(targetGPS) {
+				const distance = turf.distance([this.originGPS.lon, this.originGPS.lat], [targetGPS.lon, targetGPS.lat], { units: 'meters' });
+				const bearing = turf.bearing([this.originGPS.lon, this.originGPS.lat], [targetGPS.lon, targetGPS.lat]) * Math.PI / 180;
+				return { x: Math.sin(bearing) * distance, z: -Math.cos(bearing) * distance };
+			}
+			cartesianToGPS(x, z) {
+				const distance = Math.sqrt(x * x + z * z);
+				const bearing = Math.atan2(x, -z) * 180 / Math.PI;
+				const point = turf.destination([this.originGPS.lon, this.originGPS.lat], distance, bearing, { units: 'meters' });
+				return { lat: point.geometry.coordinates[1], lon: point.geometry.coordinates[0] };
+			}
+		}
+
+		function showToast(message) { $('toast').textContent = message; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 2400); }
+		function setError(message) { $('error-message').textContent = message; $('error-message').style.display = 'block'; $('start-button').disabled = false; }
+		function validPosition(position) { return position && position.coords && Number.isFinite(position.coords.latitude) && position.coords.accuracy <= 100; }
+
+		function drawMiniMap(data) {
+			const canvas = $('mini-map'), context = canvas.getContext('2d'), width = canvas.width, height = canvas.height;
+			context.clearRect(0, 0, width, height); context.strokeStyle = 'rgba(93,231,226,.18)'; context.lineWidth = 1;
+			for (let x = 0; x < width; x += 25) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke(); }
+			for (let y = 0; y < height; y += 25) { context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke(); }
+			if (data.currentBiome === 'water') { context.fillStyle = 'rgba(84,184,255,.32)'; context.fillRect(0, height * .3, width, height * .7); }
+			data.locations.forEach((location) => { context.fillStyle = location.kind === 'water' ? '#54b8ff' : '#bafc80'; context.beginPath(); context.arc(width / 2 + location.x * 2, height / 2 - location.z * 2, 5, 0, Math.PI * 2); context.fill(); });
+			context.fillStyle = '#bafc80'; context.beginPath(); context.moveTo(width / 2, height / 2 - 10); context.lineTo(width / 2 - 8, height / 2 + 7); context.lineTo(width / 2 + 8, height / 2 + 7); context.closePath(); context.fill();
+		}
+
+		function updateMapGraphics(satelliteData) {
+			$('biome-readout').textContent = satelliteData.currentBiome.toUpperCase(); $('map-intensity').textContent = Math.round(satelliteData.intensity * 100) + '%';
+			drawMiniMap(satelliteData); if (state.scene) { state.scene.children.filter((object) => object.userData.mapObject).forEach((object) => state.scene.remove(object)); }
+			if (satelliteData.currentBiome === 'water') { const grid = new THREE.GridHelper(22, 11, 0x54b8ff, 0x1f7093); grid.position.y = -.9; grid.userData.mapObject = true; state.scene.add(grid); }
+			if (satelliteData.currentBiome === 'nature') { for (let index = 0; index < 6; index += 1) { const tree = new THREE.Mesh(new THREE.ConeGeometry(.5, 2.1, 5, 1, true), new THREE.MeshBasicMaterial({ color: 0xbafc80, wireframe: true, transparent: true, opacity: .75 })); tree.position.set((index - 2.5) * 2.1, .2, -5 - (index % 2) * 2); tree.userData.mapObject = true; state.scene.add(tree); } }
+		}
+
+		async function fetchSatelliteData(position) {
+			const { latitude: lat, longitude: lon } = position.coords, box = `${lat - .002},${lon - .002},${lat + .002},${lon + .002}`;
+			const query = `[out:json][timeout:8];(way["natural"="water"](${box});relation["natural"="water"](${box});way["leisure"="park"](${box});relation["leisure"="park"](${box}););out center;`;
+			let elements = [];
+			try { const response = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query)); if (response.ok) elements = (await response.json()).elements || []; } catch (error) { console.warn('GIS lookup unavailable', error); }
+			const projection = new GeoProjectionEngine({ lat, lon }), locations = elements.slice(0, 12).map((element) => { const point = element.center || element; const projected = projection.gpsToCartesian({ lat: point.lat, lon: point.lon }); return { ...projected, kind: element.tags && element.tags.natural === 'water' ? 'water' : 'park' }; });
+			const hasWater = locations.some((location) => location.kind === 'water'), hasPark = locations.some((location) => location.kind === 'park');
+			return { currentBiome: hasWater ? 'water' : hasPark ? 'nature' : 'urban', intensity: Math.min(1, .35 + locations.length / 12), locations };
+		}
+
+		function spawnEntities(biome) {
+			state.spawns.forEach((entity) => state.scene.remove(entity)); state.spawns = []; const color = biome === 'water' ? 0x54b8ff : biome === 'nature' ? 0xbafc80 : 0xffbe6b;
+			for (let index = 0; index < 3; index += 1) { const entity = new THREE.Mesh(new THREE.OctahedronGeometry(.65, 0), new THREE.MeshBasicMaterial({ color, wireframe: true })); const angle = Math.random() * Math.PI * 2, distance = 5 + Math.random() * 10; entity.position.set(Math.sin(angle) * distance, 1.3 + Math.random() * 2.5, -Math.cos(angle) * distance); entity.userData = { collectible: true, baseY: entity.position.y, phase: Math.random() * 6.28 }; state.scene.add(entity); state.spawns.push(entity); }
+			$('spawn-readout').textContent = '0 / ' + state.spawns.length;
+		}
+
+		function onTap(event) { const pointer = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1), raycaster = new THREE.Raycaster(); raycaster.setFromCamera(pointer, state.camera); const hit = raycaster.intersectObjects(state.spawns)[0]; if (!hit) return; const entity = hit.object; entity.userData.collecting = true; $('spawn-readout').textContent = (3 - state.spawns.length + 1) + ' / 3'; setTimeout(() => { state.scene.remove(entity); state.spawns = state.spawns.filter((spawn) => spawn !== entity); showToast('SIGNAL COLLECTED'); }, 450); }
+
+		function updatePosition(position) { if (!validPosition(position)) { $('status-label').textContent = 'GPS SIGNAL WEAK'; return; } state.position = position; const { latitude: lat, longitude: lon, accuracy } = position.coords; $('coords-readout').textContent = lat.toFixed(4) + ' / ' + lon.toFixed(4); $('range-readout').textContent = Math.round(accuracy) + ' M'; if (!state.origin) { state.origin = { lat, lon }; state.locationBased.add({ lat, lon }, new THREE.Mesh(new THREE.SphereGeometry(.15), new THREE.MeshBasicMaterial({ color: 0xbafc80 }))); } if (!state.lastFetch || turf.distance([state.lastFetch.lon, state.lastFetch.lat], [lon, lat], { units: 'meters' }) > 20) { state.lastFetch = { lat, lon }; $('status-label').textContent = 'UPLINKING GIS'; fetchSatelliteData(position).then((data) => { updateMapGraphics(data); spawnEntities(data.currentBiome); $('status-label').textContent = 'LIVE TERRAIN LINK'; }).catch(() => { $('status-label').textContent = 'LOCAL MODE'; }); } }
+
+		async function startExperience() {
+			$('start-button').disabled = true; $('start-button').textContent = 'Requesting sensors...';
+			if (!navigator.geolocation) return setError('Geolocation is not available in this browser.');
+			try { if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission(); await new Promise((resolve, reject) => navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then((stream) => { stream.getTracks().forEach((track) => track.stop()); resolve(); }).catch(reject) : resolve()); navigator.geolocation.getCurrentPosition(updatePosition, () => setError('GPS permission is required to anchor the field scanner.'), { enableHighAccuracy: true, timeout: 12000 }); navigator.geolocation.watchPosition(updatePosition, () => { $('status-label').textContent = 'GPS RECONNECTING'; }, { enableHighAccuracy: true, maximumAge: 5000 }); initAR(); } catch (error) { setError('Camera or motion permission was declined. Enable it and try again.'); } }
+
+		function initAR() { state.scene = new THREE.Scene(); state.camera = new THREE.Camera(); state.scene.add(state.camera); state.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); state.renderer.setSize(window.innerWidth, window.innerHeight); $('ar-scene').appendChild(state.renderer.domElement); state.locationBased = new THREEx.LocationBased(state.scene, state.camera); const source = new THREEx.WebcamRenderer(state.renderer); source.setupClickTouch(); $('permission-gate').classList.add('hidden'); $('hud-screen').classList.remove('hidden'); window.addEventListener('resize', () => state.renderer.setSize(window.innerWidth, window.innerHeight)); window.addEventListener('click', onTap); requestAnimationFrame(animate); }
+		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; entity.position.y = entity.userData.baseY + Math.sin(time / 450 + entity.userData.phase) * .18; } else { entity.scale.multiplyScalar(.9); } }); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
+		$('start-button').addEventListener('click', startExperience);
+	</script>
+</body>
+</html>
