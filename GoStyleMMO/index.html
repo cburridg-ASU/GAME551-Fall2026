@@ -93,7 +93,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 	<script>
 		'use strict';
-		const state = { origin: null, position: null, heading: 0, lastFetch: null, spawns: [], scene: null, camera: null, renderer: null, locationBased: null };
+		const state = { origin: null, position: null, heading: 0, lastFetch: null, spawns: [], scene: null, camera: null, renderer: null, locationBased: null, webcam: null };
 		const $ = (id) => document.getElementById(id);
 
 		class GeoProjectionEngine {
@@ -171,8 +171,8 @@
 			} catch (error) { setError(permissionError(error)); }
 		}
 
-		function initAR() { state.scene = new THREE.Scene(); state.camera = new THREE.Camera(); state.scene.add(state.camera); state.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); state.renderer.setSize(window.innerWidth, window.innerHeight); $('ar-scene').appendChild(state.renderer.domElement); state.locationBased = new THREEx.LocationBased(state.scene, state.camera); const source = new THREEx.WebcamRenderer(state.renderer); source.setupClickTouch(); $('permission-gate').classList.add('hidden'); $('hud-screen').classList.remove('hidden'); window.addEventListener('resize', () => state.renderer.setSize(window.innerWidth, window.innerHeight)); window.addEventListener('click', onTap); requestAnimationFrame(animate); }
-		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; entity.position.y = entity.userData.baseY + Math.sin(time / 450 + entity.userData.phase) * .18; } else { entity.scale.multiplyScalar(.9); } }); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
+		function initAR() { state.scene = new THREE.Scene(); state.camera = new THREE.Camera(); state.scene.add(state.camera); state.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); state.renderer.setSize(window.innerWidth, window.innerHeight); $('ar-scene').appendChild(state.renderer.domElement); state.locationBased = new THREEx.LocationBased(state.scene, state.camera); state.webcam = new THREEx.WebcamRenderer(state.renderer); $('permission-gate').classList.add('hidden'); $('hud-screen').classList.remove('hidden'); window.addEventListener('resize', () => state.renderer.setSize(window.innerWidth, window.innerHeight)); window.addEventListener('click', onTap); requestAnimationFrame(animate); }
+		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; entity.position.y = entity.userData.baseY + Math.sin(time / 450 + entity.userData.phase) * .18; } else { entity.scale.multiplyScalar(.9); } }); if (state.webcam) state.webcam.update(); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
 		$('start-button').addEventListener('click', startExperience);
 	</script>
 </body>
