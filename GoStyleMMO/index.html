@@ -114,6 +114,9 @@
 		function showToast(message) { $('toast').textContent = message; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 2400); }
 		function setError(message) { $('error-message').textContent = message; $('error-message').style.display = 'block'; $('start-button').disabled = false; }
 		function validPosition(position) { return position && position.coords && Number.isFinite(position.coords.latitude) && position.coords.accuracy <= 100; }
+		function permissionError(error) { const name = error && error.name ? ' (' + error.name + ')' : ''; return error && error.message ? error.message + name : 'The browser did not grant this sensor permission.'; }
+		function requestLocation() { return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })); }
+		async function requestCamera() { if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera access requires an HTTPS GitHub Pages URL or localhost.'); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); stream.getTracks().forEach((track) => track.stop()); }
 
 		function drawMiniMap(data) {
 			const canvas = $('mini-map'), context = canvas.getContext('2d'), width = canvas.width, height = canvas.height;
@@ -155,7 +158,18 @@
 		async function startExperience() {
 			$('start-button').disabled = true; $('start-button').textContent = 'Requesting sensors...';
 			if (!navigator.geolocation) return setError('Geolocation is not available in this browser.');
-			try { if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') await DeviceOrientationEvent.requestPermission(); await new Promise((resolve, reject) => navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then((stream) => { stream.getTracks().forEach((track) => track.stop()); resolve(); }).catch(reject) : resolve()); navigator.geolocation.getCurrentPosition(updatePosition, () => setError('GPS permission is required to anchor the field scanner.'), { enableHighAccuracy: true, timeout: 12000 }); navigator.geolocation.watchPosition(updatePosition, () => { $('status-label').textContent = 'GPS RECONNECTING'; }, { enableHighAccuracy: true, maximumAge: 5000 }); initAR(); } catch (error) { setError('Camera or motion permission was declined. Enable it and try again.'); } }
+			try {
+				if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+					const orientationPermission = await DeviceOrientationEvent.requestPermission();
+					if (orientationPermission !== 'granted') throw new Error('Motion and compass permission was declined.');
+				}
+				await requestCamera();
+				const position = await requestLocation();
+				updatePosition(position);
+				navigator.geolocation.watchPosition(updatePosition, () => { $('status-label').textContent = 'GPS RECONNECTING'; }, { enableHighAccuracy: true, maximumAge: 5000 });
+				try { initAR(); } catch (error) { setError('AR camera startup failed: ' + permissionError(error)); }
+			} catch (error) { setError(permissionError(error)); }
+		}
 
 		function initAR() { state.scene = new THREE.Scene(); state.camera = new THREE.Camera(); state.scene.add(state.camera); state.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); state.renderer.setSize(window.innerWidth, window.innerHeight); $('ar-scene').appendChild(state.renderer.domElement); state.locationBased = new THREEx.LocationBased(state.scene, state.camera); const source = new THREEx.WebcamRenderer(state.renderer); source.setupClickTouch(); $('permission-gate').classList.add('hidden'); $('hud-screen').classList.remove('hidden'); window.addEventListener('resize', () => state.renderer.setSize(window.innerWidth, window.innerHeight)); window.addEventListener('click', onTap); requestAnimationFrame(animate); }
 		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; entity.position.y = entity.userData.baseY + Math.sin(time / 450 + entity.userData.phase) * .18; } else { entity.scale.multiplyScalar(.9); } }); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
