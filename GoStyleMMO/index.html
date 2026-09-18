@@ -38,8 +38,9 @@
 		#dev-toggle { pointer-events: auto; position: absolute; top: 94px; right: 18px; padding: 7px 9px; border: 1px solid var(--line); background: rgba(5,22,24,.72); color: var(--acid); font-size: 9px; }
 		#dev-console { pointer-events: auto; position: absolute; top: 125px; right: 18px; width: min(330px, calc(100vw - 36px)); max-height: 185px; padding: 10px; overflow: auto; border: 1px solid var(--line); background: rgba(2,12,14,.9); color: var(--muted); font-size: 9px; line-height: 1.5; }
 		#dev-console strong { color: var(--acid); }
-		#spawn-test, #dump-state { float: right; margin-top: -4px; padding: 5px 7px; border: 1px solid var(--acid); background: transparent; color: var(--acid); font: 700 8px 'Space Mono', monospace; }
+		#spawn-test, #dump-state, #simulate-walk { float: right; margin-top: -4px; padding: 5px 7px; border: 1px solid var(--acid); background: transparent; color: var(--acid); font: 700 8px 'Space Mono', monospace; }
 		#dump-state { margin-right: 5px; }
+		#simulate-walk { margin-right: 5px; }
 		.dev-line { margin: 0 0 5px; overflow-wrap: anywhere; }
 		.reticle { position: absolute; top: 44%; left: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); border: 1px solid rgba(186, 252, 128, .48); border-radius: 50%; }
 		.reticle::before, .reticle::after { content: ''; position: absolute; background: var(--acid); opacity: .7; }
@@ -88,7 +89,7 @@
 			</header>
 			<div class="reticle" aria-hidden="true"></div>
 			<button id="dev-toggle" type="button">DEV CONSOLE</button>
-			<div id="dev-console" class="hidden" aria-live="polite"><strong>FIELD DEBUG LOG</strong><button id="spawn-test" type="button">SPAWN TEST</button><button id="dump-state" type="button">DUMP STATE</button><div id="dev-log"></div></div>
+			<div id="dev-console" class="hidden" aria-live="polite"><strong>FIELD DEBUG LOG</strong><button id="spawn-test" type="button">SPAWN TEST</button><button id="dump-state" type="button">DUMP STATE</button><button id="simulate-walk" type="button">SIM +10M</button><div id="dev-log"></div></div>
 			<div class="bottom-bar">
 				<div><div class="status"><span class="status-dot"></span><span id="status-label">LINKING SATELLITE</span></div><div class="metrics"><div>RANGE<strong id="range-readout">-- M</strong></div><div>SIGNALS<strong id="spawn-readout">0 / 3</strong></div></div></div>
 				<div class="map-panel"><div class="map-title"><span>LOCAL TERRAIN</span><span id="map-intensity">--%</span></div><canvas id="mini-map" width="300" height="250"></canvas></div>
@@ -128,7 +129,7 @@
 		function permissionError(error) { const name = error && error.name ? ' (' + error.name + ')' : ''; return error && error.message ? error.message + name : 'The browser did not grant this sensor permission.'; }
 		function requestLocation() { return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 })); }
 		const locationOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-		function startLocationTracking() { if (state.gpsWatch !== null) navigator.geolocation.clearWatch(state.gpsWatch); state.gpsWatch = navigator.geolocation.watchPosition(updatePosition, (error) => devLog('GPS watch error: ' + error.message + ' (' + error.code + ')', 'error'), locationOptions); state.gpsPoll = setInterval(() => { if (state.gpsPollBusy) return; state.gpsPollBusy = true; navigator.geolocation.getCurrentPosition((position) => { state.gpsPollBusy = false; updatePosition(position); }, (error) => { state.gpsPollBusy = false; devLog('GPS poll error: ' + error.message + ' (' + error.code + ')', 'error'); }, locationOptions); }, 3000); devLog('GPS tracking started: watch + 3s poll'); }
+		function startLocationTracking() { if (state.gpsWatch !== null) navigator.geolocation.clearWatch(state.gpsWatch); state.gpsWatch = navigator.geolocation.watchPosition(updatePosition, (error) => devLog('GPS watch error: ' + error.message + ' (' + error.code + ')', 'error'), locationOptions); state.gpsPoll = setInterval(() => { if (state.gpsPollBusy) return; state.gpsPollBusy = true; navigator.geolocation.getCurrentPosition((position) => { state.gpsPollBusy = false; devLog('GPS poll result: ' + position.coords.latitude.toFixed(6) + ',' + position.coords.longitude.toFixed(6) + ' +/-' + Math.round(position.coords.accuracy) + 'm'); updatePosition(position); }, (error) => { state.gpsPollBusy = false; devLog('GPS poll error: ' + error.message + ' (' + error.code + ')', 'error'); }, locationOptions); }, 3000); devLog('GPS tracking started: watch + 3s poll'); }
 		async function requestCamera() { if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Camera access requires an HTTPS GitHub Pages URL or localhost.'); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false }); stream.getTracks().forEach((track) => track.stop()); }
 
 		function drawMiniMap(data) {
@@ -192,6 +193,7 @@
 		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; } else { entity.scale.multiplyScalar(.9); } }); if (state.orientation) state.orientation.update(); if (state.webcam) state.webcam.update(); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
 		$('start-button').addEventListener('click', startExperience);
 		$('dump-state').addEventListener('click', dumpState);
+		$('simulate-walk').addEventListener('click', () => { if (!state.camera) return devLog('Start scanner before simulating movement', 'error'); state.camera.position.x += 10; devLog('SIM: camera moved +10m east; GIS cubes should remain fixed'); dumpState(); });
 		$('spawn-test').addEventListener('click', async () => { if (!state.scene || !state.camera) return devLog('Start scanner before spawning test signals', 'error'); if (!state.satelliteData && state.terrainPromise) { devLog('Waiting for the active GIS request...'); try { await state.terrainPromise; } catch (error) { devLog('GIS request did not complete: ' + error.message, 'error'); } } if (!state.satelliteData && state.position) { devLog('No GIS payload; creating nearby mapped test locations', 'error'); const { latitude: lat, longitude: lon } = state.position.coords; applyTerrainData(localTerrainData(lat, lon, 'manual spawn test'), 'LOCAL MODE'); } if (!state.satelliteData) return devLog('No GPS position available for mapped spawn', 'error'); spawnEntities(state.satelliteData); $('status-label').textContent = 'MAPPED SIGNALS ACTIVE'; showToast(state.spawns.length + ' MAPPED SIGNALS SPAWNED'); });
 	</script>
 </body>
