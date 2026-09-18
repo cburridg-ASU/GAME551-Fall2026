@@ -38,6 +38,7 @@
 		#dev-toggle { pointer-events: auto; position: absolute; top: 94px; right: 18px; padding: 7px 9px; border: 1px solid var(--line); background: rgba(5,22,24,.72); color: var(--acid); font-size: 9px; }
 		#dev-console { pointer-events: auto; position: absolute; top: 125px; right: 18px; width: min(330px, calc(100vw - 36px)); max-height: 185px; padding: 10px; overflow: auto; border: 1px solid var(--line); background: rgba(2,12,14,.9); color: var(--muted); font-size: 9px; line-height: 1.5; }
 		#dev-console strong { color: var(--acid); }
+		#spawn-test { float: right; margin-top: -4px; padding: 5px 7px; border: 1px solid var(--acid); background: transparent; color: var(--acid); font: 700 8px 'Space Mono', monospace; }
 		.dev-line { margin: 0 0 5px; overflow-wrap: anywhere; }
 		.reticle { position: absolute; top: 44%; left: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); border: 1px solid rgba(186, 252, 128, .48); border-radius: 50%; }
 		.reticle::before, .reticle::after { content: ''; position: absolute; background: var(--acid); opacity: .7; }
@@ -86,7 +87,7 @@
 			</header>
 			<div class="reticle" aria-hidden="true"></div>
 			<button id="dev-toggle" type="button">DEV CONSOLE</button>
-			<div id="dev-console" class="hidden" aria-live="polite"><strong>FIELD DEBUG LOG</strong><div id="dev-log"></div></div>
+			<div id="dev-console" class="hidden" aria-live="polite"><strong>FIELD DEBUG LOG</strong><button id="spawn-test" type="button">SPAWN TEST</button><div id="dev-log"></div></div>
 			<div class="bottom-bar">
 				<div><div class="status"><span class="status-dot"></span><span id="status-label">LINKING SATELLITE</span></div><div class="metrics"><div>RANGE<strong id="range-readout">-- M</strong></div><div>SIGNALS<strong id="spawn-readout">0 / 3</strong></div></div></div>
 				<div class="map-panel"><div class="map-title"><span>LOCAL TERRAIN</span><span id="map-intensity">--%</span></div><canvas id="mini-map" width="300" height="250"></canvas></div>
@@ -156,7 +157,7 @@
 
 		function spawnEntities(biome) {
 			state.spawns.forEach((entity) => state.scene.remove(entity)); state.spawns = []; const color = biome === 'water' ? 0x54b8ff : biome === 'nature' ? 0xbafc80 : 0xffbe6b;
-			for (let index = 0; index < 3; index += 1) { const entity = new THREE.Mesh(new THREE.OctahedronGeometry(.65, 0), new THREE.MeshBasicMaterial({ color, wireframe: true })); const angle = Math.random() * Math.PI * 2, distance = 5 + Math.random() * 10; entity.position.set(Math.sin(angle) * distance, 1.3 + Math.random() * 2.5, -Math.cos(angle) * distance); entity.userData = { collectible: true, baseY: entity.position.y, phase: Math.random() * 6.28 }; state.scene.add(entity); state.spawns.push(entity); }
+			for (let index = 0; index < 3; index += 1) { const entity = new THREE.Mesh(new THREE.OctahedronGeometry(.65, 0), new THREE.MeshBasicMaterial({ color, wireframe: true })); const angle = Math.random() * Math.PI * 2, distance = 5 + Math.random() * 10; const cameraX = state.camera ? state.camera.position.x : 0, cameraZ = state.camera ? state.camera.position.z : 0, baseY = (state.camera ? state.camera.position.y : 0) + 1.3 + Math.random() * 2.5; entity.position.set(cameraX + Math.sin(angle) * distance, baseY, cameraZ - Math.cos(angle) * distance); entity.userData = { collectible: true, baseY: entity.position.y, phase: Math.random() * 6.28 }; state.scene.add(entity); state.spawns.push(entity); }
 			$('spawn-readout').textContent = '0 / ' + state.spawns.length; devLog('Spawned ' + state.spawns.length + ' ' + biome + ' signals');
 		}
 
@@ -183,6 +184,7 @@
 		function initAR() { state.scene = new THREE.Scene(); state.camera = new THREE.Camera(); state.scene.add(state.camera); state.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); state.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); state.renderer.setSize(window.innerWidth, window.innerHeight); $('ar-scene').appendChild(state.renderer.domElement); state.locationBased = new THREEx.LocationBased(state.scene, state.camera); state.webcam = new THREEx.WebcamRenderer(state.renderer); $('permission-gate').classList.add('hidden'); $('hud-screen').classList.remove('hidden'); window.addEventListener('resize', () => state.renderer.setSize(window.innerWidth, window.innerHeight)); window.addEventListener('click', onTap); requestAnimationFrame(animate); }
 		function animate(time) { state.spawns.forEach((entity) => { if (!entity.userData.collecting) { entity.rotation.y += .015; entity.position.y = entity.userData.baseY + Math.sin(time / 450 + entity.userData.phase) * .18; } else { entity.scale.multiplyScalar(.9); } }); if (state.webcam) state.webcam.update(); if (state.renderer) state.renderer.render(state.scene, state.camera); requestAnimationFrame(animate); }
 		$('start-button').addEventListener('click', startExperience);
+		$('spawn-test').addEventListener('click', () => { if (!state.scene || !state.camera) return devLog('Start scanner before spawning test signals', 'error'); spawnEntities('nature'); $('status-label').textContent = 'TEST SIGNALS ACTIVE'; showToast('3 TEST SIGNALS SPAWNED'); });
 	</script>
 </body>
 </html>
