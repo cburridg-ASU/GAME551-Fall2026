@@ -431,7 +431,7 @@
         const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
         const verticalDistance = (entry.screenHeight / 2) / Math.tan(verticalFov / 2);
         const horizontalDistance = (entry.width / 2) / Math.tan(horizontalFov / 2);
-        const distance = Math.min(Math.max(verticalDistance, horizontalDistance) * 1.05, 1.45);
+        const distance = Math.min(Math.max(verticalDistance, horizontalDistance) * 1.02, 0.95);
 
         focus.startPosition.copy(camera.position);
         focus.startQuaternion.copy(camera.quaternion);
@@ -512,9 +512,11 @@
         const screenBoxHeight = Math.max(1, screenBottom - screenTop);
         const nativeAspect = entry.config.width / entry.config.height;
         const displayWidth = Math.min(screenBoxWidth, screenBoxHeight * nativeAspect);
-        const scale = Math.max(0.01, displayWidth / entry.config.width);
+        const visualScale = entry.config.height > entry.config.width ? 1.5 : 2;
+        const scale = Math.max(0.01, (displayWidth / entry.config.width) * visualScale);
+        const screenOffsetX = -screenBoxWidth * 0.06;
 
-        entry.iframe.style.left = `${screenCenterX - entry.config.width / 2}px`;
+        entry.iframe.style.left = `${screenCenterX - entry.config.width / 2 + screenOffsetX}px`;
         entry.iframe.style.top = `${screenCenterY - entry.config.height / 2}px`;
         entry.iframe.style.width = `${entry.config.width}px`;
         entry.iframe.style.height = `${entry.config.height}px`;
@@ -538,7 +540,7 @@
         const floor = bounds.min.y;
         const wallOffset = 0.12;
         const cabinetInset = 0.9;
-        const groundLift = 0.65;
+        const groundLift = 1.15;
         const placements = {
           north: [center.x, floor, bounds.min.z],
           south: [center.x, floor, bounds.max.z],
