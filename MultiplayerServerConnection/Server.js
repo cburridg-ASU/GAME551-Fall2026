@@ -48,11 +48,11 @@ wss2.on('connection', function connection(ws) {
 server.on('upgrade', function upgrade(request, socket, head) {
   const pathname = url.parse(request.url).pathname;
 
-  if (pathname === '/jpgstream_server') {
+  if (pathname === '/server') {
     wss1.handleUpgrade(request, socket, head, function done(ws) {
       wss1.emit('connection', ws, request);
     });
-  } else if (pathname === '/jpgstream_client') {
+  } else if (pathname === '/client') {
     wss2.handleUpgrade(request, socket, head, function done(ws) {
       wss2.emit('connection', ws, request);
     });
