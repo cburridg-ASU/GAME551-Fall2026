@@ -71,7 +71,6 @@ app.get("/numberofclients", function (req, res) {
     res.writeHead(200, {'Content-Type': 'text/plain'}); // send response header
    res.end(numberofclient.toString()); // send response body
 });
-
 // cors
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
