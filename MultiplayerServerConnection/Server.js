@@ -34,6 +34,7 @@ wss1.on('connection', function connection(ws) {
   });
 });
 
+
 // webbrowser websocket
 wss2.on('connection', function connection(ws) {
   if (ws._socket.setNoDelay) {
@@ -48,11 +49,11 @@ wss2.on('connection', function connection(ws) {
 server.on('upgrade', function upgrade(request, socket, head) {
   const pathname = url.parse(request.url).pathname;
 
-  if (pathname === '/jpgstream_server') {
+  if (pathname === '/server') {
     wss1.handleUpgrade(request, socket, head, function done(ws) {
       wss1.emit('connection', ws, request);
     });
-  } else if (pathname === '/jpgstream_client') {
+  } else if (pathname === '/client') {
     wss2.handleUpgrade(request, socket, head, function done(ws) {
       wss2.emit('connection', ws, request);
     });
@@ -70,7 +71,6 @@ app.get("/numberofclients", function (req, res) {
     res.writeHead(200, {'Content-Type': 'text/plain'}); // send response header
    res.end(numberofclient.toString()); // send response body
 });
-
 // cors
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
