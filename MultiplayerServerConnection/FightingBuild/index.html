@@ -2,28 +2,229 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity WebGL Player | CWOWD</title>
-  </head>
-  <body style="text-align: center; padding: 0; border: 0; margin: 0;">
-    <canvas id="unity-canvas" width=1280 height=720 tabindex="-1" style="width: 1280px; height: 720px; background: #231F20"></canvas>
-    <script src="Build/Builds.loader.js"></script>
-    <script>
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-
-        var canvas = document.querySelector("#unity-canvas");
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.position = "fixed";
-
-        document.body.style.textAlign = "left";
+    <style>
+      * {
+        box-sizing: border-box;
       }
 
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        color: #f5f5f5;
+        font-family: Arial, sans-serif;
+        background: #111;
+      }
+
+      .game-shell {
+        display: flex;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        flex-direction: column;
+      }
+
+      .game-toolbar {
+        display: flex;
+        min-height: 56px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 8px 16px;
+        background: #202124;
+      }
+
+      .game-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .game-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .volume-control {
+        display: flex;
+        min-width: 190px;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .volume-control input {
+        width: 120px;
+        accent-color: #8ab4f8;
+      }
+
+      #volume-value {
+        min-width: 38px;
+        text-align: right;
+      }
+
+      #fullscreen-button {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 4px;
+        color: #111;
+        background: #8ab4f8;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      #fullscreen-button:focus-visible,
+      .volume-control input:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+
+      .game-stage {
+        display: grid;
+        min-height: 0;
+        flex: 1;
+        place-items: center;
+        overflow: hidden;
+        padding: 12px;
+        background: #050505;
+      }
+
+      #unity-canvas {
+        display: block;
+        width: min(100%, calc((100dvh - 80px) * 16 / 9));
+        max-height: 100%;
+        aspect-ratio: 16 / 9;
+        background: #231f20;
+      }
+
+      @media (max-width: 520px) {
+        .game-toolbar {
+          gap: 8px;
+          padding: 8px;
+        }
+
+        .game-title {
+          font-size: 14px;
+        }
+
+        .game-controls {
+          gap: 8px;
+        }
+
+        .volume-control {
+          min-width: 0;
+          gap: 4px;
+        }
+
+        .volume-control input {
+          width: 72px;
+        }
+
+        #fullscreen-button {
+          padding: 0 8px;
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game-shell" id="game-shell">
+      <header class="game-toolbar">
+        <h1 class="game-title">CWOWD</h1>
+        <div class="game-controls">
+          <label class="volume-control" for="volume-slider">
+            <span>Volume</span>
+            <input id="volume-slider" type="range" min="0" max="100" value="100">
+            <output id="volume-value" for="volume-slider">100%</output>
+          </label>
+          <button id="fullscreen-button" type="button">Fullscreen</button>
+        </div>
+      </header>
+      <section class="game-stage" aria-label="Game">
+        <canvas id="unity-canvas" width="1280" height="720" tabindex="-1"></canvas>
+      </section>
+    </main>
+
+    <script>
+      const volumeSlider = document.querySelector("#volume-slider");
+      const volumeValue = document.querySelector("#volume-value");
+      const masterGains = new Set();
+      let masterVolume = Number(volumeSlider.value) / 100;
+
+      function setMasterVolume(volume) {
+        masterVolume = volume;
+        masterGains.forEach((gain) => {
+          gain.gain.value = masterVolume;
+        });
+        volumeValue.value = `${Math.round(masterVolume * 100)}%`;
+      }
+
+      volumeSlider.addEventListener("input", () => {
+        setMasterVolume(Number(volumeSlider.value) / 100);
+      });
+
+      if (window.AudioNode) {
+        const connect = AudioNode.prototype.connect;
+
+        AudioNode.prototype.connect = function (destination, output, input) {
+          if (destination === this.context.destination) {
+            const masterGain = this.context.createGain();
+            masterGain.gain.value = masterVolume;
+            masterGains.add(masterGain);
+
+            if (output === undefined) {
+              connect.call(this, masterGain);
+            } else {
+              connect.call(this, masterGain, output);
+            }
+
+            if (input === undefined) {
+              connect.call(masterGain, destination);
+            } else {
+              connect.call(masterGain, destination, 0, input);
+            }
+
+            return destination;
+          }
+
+          return connect.apply(this, arguments);
+        };
+      }
+
+      const gameShell = document.querySelector("#game-shell");
+      const fullscreenButton = document.querySelector("#fullscreen-button");
+
+      function updateFullscreenButton() {
+        fullscreenButton.textContent = document.fullscreenElement === gameShell
+          ? "Exit fullscreen"
+          : "Fullscreen";
+      }
+
+      fullscreenButton.addEventListener("click", () => {
+        const fullscreenChange = document.fullscreenElement
+          ? document.exitFullscreen()
+          : gameShell.requestFullscreen();
+
+        fullscreenChange.catch((error) => {
+          console.error("Could not change fullscreen mode:", error);
+        });
+      });
+
+      document.addEventListener("fullscreenchange", updateFullscreenButton);
+    </script>
+    <script src="Build/Builds.loader.js"></script>
+    <script>
       createUnityInstance(document.querySelector("#unity-canvas"), {
         dataUrl: "Build/Builds.data.gz",
         frameworkUrl: "Build/Builds.framework.js.gz",
@@ -31,9 +232,7 @@
         streamingAssetsUrl: "StreamingAssets",
         companyName: "MythosGames",
         productName: "CWOWD",
-        productVersion: "0.1.0",
-        // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-        // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
+        productVersion: "0.1.0"
       });
     </script>
   </body>
