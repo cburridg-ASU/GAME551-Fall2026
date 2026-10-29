@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CWOWD Multiplayer Lobby</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 16px;
+        color: #f5f5f5;
+        background: #111318;
+        font-family: Arial, sans-serif;
+      }
+
+      main {
+        width: min(100%, 720px);
+        margin: 0 auto;
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      .panel {
+        margin-top: 20px;
+        padding: 24px;
+        border: 1px solid #343943;
+        border-radius: 12px;
+        background: #20242c;
+      }
+
+      .intro {
+        color: #c7ccd5;
+        line-height: 1.5;
+      }
+
+      button {
+        min-height: 42px;
+        padding: 0 16px;
+        border: 0;
+        border-radius: 6px;
+        color: #111;
+        background: #8ab4f8;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.6;
+      }
+
+      .room-list {
+        display: grid;
+        gap: 12px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .room-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px;
+        border-radius: 8px;
+        background: #2b303a;
+      }
+
+      .room-code {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+      }
+
+      .room-meta,
+      #room-list-message {
+        color: #c7ccd5;
+        font-size: 14px;
+      }
+
+      #status {
+        min-height: 24px;
+        margin: 16px 0 0;
+        color: #ffd180;
+      }
+
+      @media (max-width: 480px) {
+        .panel {
+          padding: 18px;
+        }
+
+        .room-item {
+          padding: 10px;
+        }
+
+        .room-code {
+          font-size: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>CWOWD Multiplayer</h1>
+        <p class="intro">Create a room, or join an available room. Each room supports two players.</p>
+      </header>
+
+      <section class="panel" aria-labelledby="create-heading">
+        <h2 id="create-heading">Create a room</h2>
+        <button id="create-room" type="button">Create room</button>
+      </section>
+
+      <section class="panel" aria-labelledby="rooms-heading">
+        <h2 id="rooms-heading">Available rooms</h2>
+        <p id="room-list-message" aria-live="polite">Loading rooms…</p>
+        <ul class="room-list" id="room-list"></ul>
+      </section>
+      <p id="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script>
+      const createButton = document.querySelector("#create-room");
+      const roomList = document.querySelector("#room-list");
+      const roomListMessage = document.querySelector("#room-list-message");
+      const status = document.querySelector("#status");
+
+      async function readError(response) {
+        const result = await response.json();
+        return result.error || `Request failed (${response.status}).`;
+      }
+
+      async function createRoom() {
+        createButton.disabled = true;
+        status.textContent = "Creating room…";
+
+        try {
+          const response = await fetch("/api/rooms", { method: "POST" });
+          if (!response.ok) {
+            throw new Error(await readError(response));
+          }
+
+          const room = await response.json();
+          window.location.assign(room.url);
+        } catch (error) {
+          status.textContent = error.message;
+          createButton.disabled = false;
+        }
+      }
+
+      async function joinRoom(code, button) {
+        button.disabled = true;
+        status.textContent = `Joining room ${code}…`;
+
+        try {
+          const response = await fetch(`/api/rooms/${encodeURIComponent(code)}/join`, {
+            method: "POST"
+          });
+          if (!response.ok) {
+            throw new Error(await readError(response));
+          }
+
+          const room = await response.json();
+          window.location.assign(room.url);
+        } catch (error) {
+          status.textContent = error.message;
+          await refreshRooms();
+        }
+      }
+
+      async function refreshRooms() {
+        try {
+          const response = await fetch("/api/rooms", { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`Could not load rooms (${response.status}).`);
+          }
+
+          const rooms = await response.json();
+          roomList.replaceChildren();
+
+          if (rooms.length === 0) {
+            roomListMessage.textContent = "No rooms are waiting. Create one to get started.";
+            return;
+          }
+
+          roomListMessage.textContent = `${rooms.length} room${rooms.length === 1 ? "" : "s"} waiting`;
+          rooms.forEach((room) => {
+            const item = document.createElement("li");
+            item.className = "room-item";
+
+            const info = document.createElement("div");
+            const code = document.createElement("div");
+            code.className = "room-code";
+            code.textContent = room.code;
+
+            const meta = document.createElement("div");
+            meta.className = "room-meta";
+            meta.textContent = `Room port ${room.port} · waiting for player 2`;
+            info.append(code, meta);
+
+            const joinButton = document.createElement("button");
+            joinButton.type = "button";
+            joinButton.textContent = "Join";
+            joinButton.addEventListener("click", () => joinRoom(room.code, joinButton));
+
+            item.append(info, joinButton);
+            roomList.append(item);
+          });
+        } catch (error) {
+          roomListMessage.textContent = error.message;
+        }
+      }
+
+      createButton.addEventListener("click", createRoom);
+      refreshRooms();
+      window.setInterval(refreshRooms, 3000);
+    </script>
+  </body>
+</html>

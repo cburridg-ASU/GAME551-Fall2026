@@ -48,6 +48,14 @@
         font-weight: 600;
       }
 
+      .room-status {
+        overflow: hidden;
+        color: #c7ccd5;
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .game-controls {
         display: flex;
         align-items: center;
@@ -84,7 +92,19 @@
         cursor: pointer;
       }
 
+      #leave-room-button {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid #6f7785;
+        border-radius: 4px;
+        color: #f5f5f5;
+        background: transparent;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
       #fullscreen-button:focus-visible,
+      #leave-room-button:focus-visible,
       .volume-control input:focus-visible {
         outline: 2px solid #fff;
         outline-offset: 2px;
@@ -134,6 +154,11 @@
           gap: 8px;
         }
 
+        .room-status {
+          max-width: 90px;
+          font-size: 11px;
+        }
+
         .volume-control {
           min-width: 0;
           gap: 4px;
@@ -147,6 +172,11 @@
           padding: 0 8px;
           font-size: 12px;
         }
+
+        #leave-room-button {
+          padding: 0 8px;
+          font-size: 12px;
+        }
       }
     </style>
   </head>
@@ -154,12 +184,14 @@
     <main class="game-shell" id="game-shell">
       <header class="game-toolbar">
         <h1 class="game-title">CWOWD</h1>
+        <span class="room-status" id="room-status" role="status">Connecting to room…</span>
         <div class="game-controls">
           <label class="volume-control" for="volume-slider">
             <span>Volume</span>
             <input id="volume-slider" type="range" min="0" max="100" value="100">
             <output id="volume-value" for="volume-slider">100%</output>
           </label>
+          <button id="leave-room-button" type="button" disabled>Leave room</button>
           <button id="fullscreen-button" type="button">Fullscreen</button>
         </div>
       </header>
@@ -244,17 +276,114 @@
 
       document.addEventListener("fullscreenchange", updateFullscreenButton);
     </script>
-    <script src="Build/Builds.loader.js"></script>
     <script>
-      createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/Builds.data.gz",
-        frameworkUrl: "Build/Builds.framework.js.gz",
-        codeUrl: "Build/Builds.wasm.gz",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "MythosGames",
-        productName: "CWOWD",
-        productVersion: "0.1.0"
+      const roomStatus = document.querySelector("#room-status");
+      const leaveRoomButton = document.querySelector("#leave-room-button");
+      const roomParameters = new URLSearchParams(window.location.search);
+      const seatToken = roomParameters.get("seat");
+      const lobbyUrl = new URL(window.location.href);
+      lobbyUrl.port = roomParameters.get("lobbyPort") || "8080";
+      lobbyUrl.pathname = "/";
+      lobbyUrl.search = "";
+      lobbyUrl.hash = "";
+
+      let assignedRoomCode = "";
+      let assignedPlayerNumber = 0;
+      let roomSocket;
+      let leavingRoom = false;
+      let gameStarted = false;
+
+      function updateRoomStatus(message) {
+        roomStatus.textContent = `Room ${assignedRoomCode} · Player ${assignedPlayerNumber} · ${message}`;
+      }
+
+      function returnToLobby() {
+        if (leavingRoom) {
+          return;
+        }
+        leavingRoom = true;
+        window.location.assign(lobbyUrl.toString());
+      }
+
+      function startGame() {
+        if (gameStarted) {
+          return;
+        }
+
+        gameStarted = true;
+        const loader = document.createElement("script");
+        loader.src = "Build/Builds.loader.js";
+        loader.onload = () => {
+          createUnityInstance(document.querySelector("#unity-canvas"), {
+            dataUrl: "Build/Builds.data.gz",
+            frameworkUrl: "Build/Builds.framework.js.gz",
+            codeUrl: "Build/Builds.wasm.gz",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "MythosGames",
+            productName: "CWOWD",
+            productVersion: "0.1.0"
+          }).catch((error) => {
+            console.error("Could not start the Unity game:", error);
+            roomStatus.textContent = "The game could not be loaded.";
+          });
+        };
+        loader.onerror = () => {
+          roomStatus.textContent = "Could not load the Unity game.";
+        };
+        document.body.append(loader);
+      }
+
+      leaveRoomButton.addEventListener("click", () => {
+        leaveRoomButton.disabled = true;
+        roomStatus.textContent = "Closing room and returning to lobby…";
+        if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
+          roomSocket.send(JSON.stringify({ type: "leave" }));
+          window.setTimeout(returnToLobby, 1500);
+        } else {
+          returnToLobby();
+        }
       });
+
+      if (!seatToken) {
+        roomStatus.textContent = "This game must be opened from a lobby room.";
+        window.setTimeout(returnToLobby, 2500);
+      } else {
+        const socketProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        roomSocket = new WebSocket(
+          `${socketProtocol}//${window.location.host}/room?seat=${encodeURIComponent(seatToken)}`
+        );
+
+        roomSocket.addEventListener("open", () => {
+          leaveRoomButton.disabled = false;
+        });
+
+        roomSocket.addEventListener("message", (event) => {
+          const message = JSON.parse(event.data);
+          if (message.type === "joined") {
+            assignedRoomCode = message.roomCode;
+            assignedPlayerNumber = message.playerNumber;
+            updateRoomStatus("waiting for opponent");
+            startGame();
+          } else if (message.type === "playerJoined") {
+            updateRoomStatus(message.playerCount === 2
+              ? "both players connected · controls are not synced in this build"
+              : "waiting for the other player");
+          } else if (message.type === "roomClosed") {
+            roomStatus.textContent = "Room closed. Returning to lobby…";
+            returnToLobby();
+          }
+        });
+
+        roomSocket.addEventListener("error", () => {
+          roomStatus.textContent = "Could not connect to the room. Returning to lobby…";
+        });
+
+        roomSocket.addEventListener("close", () => {
+          if (!leavingRoom) {
+            returnToLobby();
+          }
+        });
+      }
     </script>
   </body>
 </html>
