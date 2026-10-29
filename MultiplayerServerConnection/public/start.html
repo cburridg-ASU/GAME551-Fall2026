@@ -3,131 +3,179 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CWOWD</title>
+    <title>CWOWD | Choose Your Battle</title>
     <style>
+      @font-face {
+        font-family: "Friz Quadrata";
+        src: url("/WebAssets/Fonts/Titles/blei00d.ttf") format("truetype");
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Friz Body";
+        src: url("/WebAssets/Fonts/Body/frizqt__.ttf") format("truetype");
+        font-display: swap;
+      }
+
       * {
         box-sizing: border-box;
       }
 
       body {
-        display: grid;
+        display: flex;
         min-height: 100vh;
         margin: 0;
-        padding: 32px 16px;
-        place-items: center;
-        color: #f5f5f5;
-        background:
-          radial-gradient(ellipse at 50% 0, rgb(86 53 24 / 42%), transparent 58%),
-          #111318;
-        font-family: Arial, sans-serif;
+        min-height: 100svh;
+        align-items: center;
+        justify-content: center;
+        padding: 36px 20px;
+        color: #f4e4bc;
+        background: #17120d url("/WebAssets/WebBackground.png") center 42% / cover fixed;
+        font-family: "Friz Body", Georgia, serif;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(180deg, rgb(13 17 20 / 30%), rgb(15 12 9 / 48%) 48%, rgb(12 10 8 / 78%));
+        content: "";
+        pointer-events: none;
       }
 
       main {
-        width: min(100%, 900px);
-      }
-
-      header {
-        margin-bottom: 36px;
+        position: relative;
+        width: min(100%, 980px);
         text-align: center;
       }
 
-      h1 {
-        margin: 0;
-        font-size: clamp(36px, 8vw, 64px);
-        letter-spacing: 0.06em;
+      header {
+        margin-bottom: 28px;
+      }
+
+      .game-logo {
+        display: block;
+        width: min(620px, 90vw);
+        max-height: 300px;
+        object-fit: contain;
+        margin: 0 auto;
+        filter: drop-shadow(0 10px 24px rgb(0 0 0 / 65%));
       }
 
       .subtitle {
-        margin: 12px 0 0;
-        color: #c7ccd5;
+        margin: 10px 0 0;
+        color: #f0d99c;
         font-size: 18px;
+        text-shadow: 0 2px 5px #090706;
       }
 
       .mode-list {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 20px;
+        gap: 24px;
       }
 
       .mode-card {
         display: flex;
-        min-height: 250px;
+        min-height: 222px;
         flex-direction: column;
-        align-items: flex-start;
-        padding: 28px;
-        border: 1px solid #3c424e;
-        border-radius: 14px;
-        color: inherit;
-        background: rgb(32 36 44 / 94%);
+        align-items: center;
+        justify-content: center;
+        padding: 30px 34px;
+        border: 14px solid transparent;
+        border-image: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") 14 48 fill / 14px 28px stretch;
+        color: #f4e4bc;
+        background: rgb(22 17 12 / 88%);
+        text-shadow: 0 2px 4px #090706;
         text-decoration: none;
-        transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+        transition: transform 160ms ease, filter 160ms ease;
       }
 
       .mode-card:hover,
       .mode-card:focus-visible {
-        transform: translateY(-3px);
-        border-color: #8ab4f8;
-        background: #282e39;
+        transform: translateY(-4px);
+        filter: brightness(1.2);
       }
 
       .mode-card:focus-visible {
-        outline: 2px solid #8ab4f8;
-        outline-offset: 3px;
+        outline: 2px solid #f4cf77;
+        outline-offset: 5px;
       }
 
-      .mode-icon {
-        margin-bottom: 22px;
-        color: #8ab4f8;
-        font-size: 32px;
+      .mode-kicker {
+        margin: 0 0 7px;
+        color: #dfbd70;
+        font-size: 12px;
+        text-transform: uppercase;
       }
 
       h2 {
         margin: 0;
-        font-size: 24px;
+        color: #fff0c8;
+        font-family: "Friz Quadrata", Georgia, serif;
+        font-size: 30px;
+        font-weight: 400;
       }
 
       .mode-description {
-        margin: 10px 0 24px;
-        color: #c7ccd5;
-        line-height: 1.5;
+        max-width: 330px;
+        margin: 9px 0 14px;
+        color: #d3c09d;
+        font-size: 15px;
+        line-height: 1.45;
       }
 
       .mode-action {
-        margin-top: auto;
-        color: #a9c7ff;
-        font-weight: 700;
+        color: #e8c66f;
+        font-family: "Friz Quadrata", Georgia, serif;
+        font-size: 14px;
+        text-transform: uppercase;
       }
 
-      @media (max-width: 620px) {
+      @media (max-width: 640px) {
         .mode-list {
           grid-template-columns: 1fr;
+          gap: 14px;
         }
 
         .mode-card {
-          min-height: 210px;
+          min-height: 170px;
           padding: 22px;
         }
+
+        .game-logo {
+          max-height: 220px;
+        }
+
+        .subtitle {
+          font-size: 16px;
+        }
+      }
+
+      @media (max-height: 760px) and (min-width: 641px) {
+        body { padding-block: 18px; }
+        .game-logo { max-height: 220px; }
+        .mode-card { min-height: 180px; }
       }
     </style>
   </head>
   <body>
     <main>
       <header>
-        <h1>CWOWD</h1>
+        <img class="game-logo" src="/WebAssets/gamelogoDUELS.png" alt="CWOWD Duels">
         <p class="subtitle">Choose how you want to play.</p>
       </header>
       <nav class="mode-list" aria-label="Game modes">
         <a class="mode-card" href="/game">
-          <span class="mode-icon" aria-hidden="true">▶</span>
+          <span class="mode-kicker">Single player</span>
           <h2>Local game</h2>
           <p class="mode-description">Load the game and play locally with your connected controls.</p>
-          <span class="mode-action">Play locally →</span>
+          <span class="mode-action">Enter the arena</span>
         </a>
         <a class="mode-card" href="/multiplayer">
-          <span class="mode-icon" aria-hidden="true">⇄</span>
+          <span class="mode-kicker">Two combatants</span>
           <h2>Multiplayer</h2>
           <p class="mode-description">Create a room or join a room waiting for another player.</p>
-          <span class="mode-action">Open multiplayer →</span>
+          <span class="mode-action">Find a battle</span>
         </a>
       </nav>
     </main>

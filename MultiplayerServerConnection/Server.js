@@ -12,6 +12,7 @@ const roomPortStart = parseInt(process.env.ROOM_PORT_START || '8100', 10);
 const roomPortCount = parseInt(process.env.ROOM_PORT_COUNT || '20', 10);
 const buildDirectory = path.join(__dirname, 'FightingBuild');
 const lobbyDirectory = path.join(__dirname, 'public');
+const webAssetsDirectory = path.join(__dirname, 'WebAssets');
 const rooms = new Map();
 const allocatedPorts = new Set();
 const reservationTimeoutMs = 5 * 60 * 1000;
@@ -372,6 +373,7 @@ app.get('/game', (req, res) => {
   res.redirect(302, '/index.html?local=1');
 });
 
+app.use('/WebAssets', express.static(webAssetsDirectory));
 app.use(express.static(buildDirectory, staticOptions()));
 
 server.listen(port, '0.0.0.0', () => {
