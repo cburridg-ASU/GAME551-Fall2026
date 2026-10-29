@@ -78,14 +78,15 @@ app.get("/", function (req, res) {
 
 app.use(express.static(buildDirectory, {
   setHeaders: function (res, filePath) {
-    if (filePath.endsWith('.br')) {
-      const originalExtension = path.extname(filePath.slice(0, -3));
+    const compressionExtension = path.extname(filePath);
+    if (compressionExtension === '.br' || compressionExtension === '.gz') {
+      const originalExtension = path.extname(filePath.slice(0, -compressionExtension.length));
       const contentType = {
         '.js': 'application/javascript',
         '.wasm': 'application/wasm'
       }[originalExtension] || 'application/octet-stream';
 
-      res.setHeader('Content-Encoding', 'br');
+      res.setHeader('Content-Encoding', compressionExtension === '.br' ? 'br' : 'gzip');
       res.setHeader('Content-Type', contentType);
     }
   }
