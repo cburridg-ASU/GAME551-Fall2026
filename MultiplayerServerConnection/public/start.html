@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CWOWD</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        padding: 32px 16px;
+        place-items: center;
+        color: #f5f5f5;
+        background:
+          radial-gradient(ellipse at 50% 0, rgb(86 53 24 / 42%), transparent 58%),
+          #111318;
+        font-family: Arial, sans-serif;
+      }
+
+      main {
+        width: min(100%, 900px);
+      }
+
+      header {
+        margin-bottom: 36px;
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(36px, 8vw, 64px);
+        letter-spacing: 0.06em;
+      }
+
+      .subtitle {
+        margin: 12px 0 0;
+        color: #c7ccd5;
+        font-size: 18px;
+      }
+
+      .mode-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .mode-card {
+        display: flex;
+        min-height: 250px;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 28px;
+        border: 1px solid #3c424e;
+        border-radius: 14px;
+        color: inherit;
+        background: rgb(32 36 44 / 94%);
+        text-decoration: none;
+        transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+      }
+
+      .mode-card:hover,
+      .mode-card:focus-visible {
+        transform: translateY(-3px);
+        border-color: #8ab4f8;
+        background: #282e39;
+      }
+
+      .mode-card:focus-visible {
+        outline: 2px solid #8ab4f8;
+        outline-offset: 3px;
+      }
+
+      .mode-icon {
+        margin-bottom: 22px;
+        color: #8ab4f8;
+        font-size: 32px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .mode-description {
+        margin: 10px 0 24px;
+        color: #c7ccd5;
+        line-height: 1.5;
+      }
+
+      .mode-action {
+        margin-top: auto;
+        color: #a9c7ff;
+        font-weight: 700;
+      }
+
+      @media (max-width: 620px) {
+        .mode-list {
+          grid-template-columns: 1fr;
+        }
+
+        .mode-card {
+          min-height: 210px;
+          padding: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>CWOWD</h1>
+        <p class="subtitle">Choose how you want to play.</p>
+      </header>
+      <nav class="mode-list" aria-label="Game modes">
+        <a class="mode-card" href="/game">
+          <span class="mode-icon" aria-hidden="true">▶</span>
+          <h2>Local game</h2>
+          <p class="mode-description">Load the game and play locally with your connected controls.</p>
+          <span class="mode-action">Play locally →</span>
+        </a>
+        <a class="mode-card" href="/multiplayer">
+          <span class="mode-icon" aria-hidden="true">⇄</span>
+          <h2>Multiplayer</h2>
+          <p class="mode-description">Create a room or join a room waiting for another player.</p>
+          <span class="mode-action">Open multiplayer →</span>
+        </a>
+      </nav>
+    </main>
+  </body>
+</html>

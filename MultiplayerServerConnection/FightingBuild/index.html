@@ -103,8 +103,20 @@
         cursor: pointer;
       }
 
+      #main-menu-button {
+        min-height: 36px;
+        padding: 0 12px;
+        border: 1px solid #6f7785;
+        border-radius: 4px;
+        color: #f5f5f5;
+        background: transparent;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
       #fullscreen-button:focus-visible,
       #leave-room-button:focus-visible,
+      #main-menu-button:focus-visible,
       .volume-control input:focus-visible {
         outline: 2px solid #fff;
         outline-offset: 2px;
@@ -177,6 +189,11 @@
           padding: 0 8px;
           font-size: 12px;
         }
+
+        #main-menu-button {
+          padding: 0 8px;
+          font-size: 12px;
+        }
       }
     </style>
   </head>
@@ -192,6 +209,7 @@
             <output id="volume-value" for="volume-slider">100%</output>
           </label>
           <button id="leave-room-button" type="button" disabled>Leave room</button>
+          <button id="main-menu-button" type="button" hidden>Main menu</button>
           <button id="fullscreen-button" type="button">Fullscreen</button>
         </div>
       </header>
@@ -279,6 +297,7 @@
     <script>
       const roomStatus = document.querySelector("#room-status");
       const leaveRoomButton = document.querySelector("#leave-room-button");
+      const mainMenuButton = document.querySelector("#main-menu-button");
       const roomParameters = new URLSearchParams(window.location.search);
       const seatToken = roomParameters.get("seat");
       const lobbyUrl = new URL(window.location.href);
@@ -292,10 +311,39 @@
       let roomSocket;
       let leavingRoom = false;
       let gameStarted = false;
+      const roomInputListeners = new Set();
+      const localMode = roomParameters.get("local") === "1";
 
       function updateRoomStatus(message) {
         roomStatus.textContent = `Room ${assignedRoomCode} · Player ${assignedPlayerNumber} · ${message}`;
       }
+
+      window.CWOWDRoom = {
+        getPlayerNumber() {
+          return assignedPlayerNumber;
+        },
+        sendInput(input) {
+          if (
+            !input ||
+            typeof input !== "object" ||
+            Array.isArray(input) ||
+            !roomSocket ||
+            roomSocket.readyState !== WebSocket.OPEN
+          ) {
+            return false;
+          }
+
+          roomSocket.send(JSON.stringify({ type: "input", input }));
+          return true;
+        },
+        onInput(listener) {
+          if (typeof listener !== "function") {
+            throw new TypeError("Room input listener must be a function.");
+          }
+          roomInputListeners.add(listener);
+          return () => roomInputListeners.delete(listener);
+        }
+      };
 
       function returnToLobby() {
         if (leavingRoom) {
@@ -344,7 +392,16 @@
         }
       });
 
-      if (!seatToken) {
+      mainMenuButton.addEventListener("click", () => {
+        window.location.assign("/");
+      });
+
+      if (localMode) {
+        roomStatus.hidden = true;
+        leaveRoomButton.hidden = true;
+        mainMenuButton.hidden = false;
+        startGame();
+      } else if (!seatToken) {
         roomStatus.textContent = "This game must be opened from a lobby room.";
         window.setTimeout(returnToLobby, 2500);
       } else {
@@ -368,6 +425,10 @@
             updateRoomStatus(message.playerCount === 2
               ? "both players connected · controls are not synced in this build"
               : "waiting for the other player");
+          } else if (message.type === "remoteInput") {
+            roomInputListeners.forEach((listener) => {
+              listener(message.playerNumber, message.input);
+            });
           } else if (message.type === "roomClosed") {
             roomStatus.textContent = "Room closed. Returning to lobby…";
             returnToLobby();

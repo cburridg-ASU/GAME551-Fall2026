@@ -153,6 +153,38 @@ function attachRoomWebSockets(room) {
         const request = JSON.parse(message.toString());
         if (request.type === 'leave') {
           closeRoom(room, 'playerLeft');
+        } else if (
+          request.type === 'input' &&
+          request.input &&
+          typeof request.input === 'object' &&
+          !Array.isArray(request.input)
+        ) {
+          const inputSize = Buffer.byteLength(JSON.stringify(request.input), 'utf8');
+          if (inputSize > 2048) {
+            client.send(JSON.stringify({ type: 'error', message: 'Input payload is too large.' }));
+            return;
+          }
+
+          const now = Date.now();
+          let rate = room.inputRates.get(playerNumber);
+          if (!rate || now - rate.startedAt >= 1000) {
+            rate = { startedAt: now, count: 0 };
+            room.inputRates.set(playerNumber, rate);
+          }
+          if (rate.count >= 120) {
+            client.send(JSON.stringify({ type: 'error', message: 'Input message rate exceeded.' }));
+            return;
+          }
+          rate.count += 1;
+
+          const opponent = room.clients.get(playerNumber === 1 ? 2 : 1);
+          if (opponent && opponent.readyState === WebSocket.OPEN) {
+            opponent.send(JSON.stringify({
+              type: 'remoteInput',
+              playerNumber,
+              input: request.input
+            }));
+          }
         }
       } catch (error) {
         console.error(`Invalid room message in ${room.code}:`, error.message);
@@ -202,9 +234,10 @@ async function allocateRoom() {
       seats: new Map(),
       connectedPlayers: new Set(),
       clients: new Map(),
+      inputRates: new Map(),
       closed: false,
       httpServer: http.createServer(createRoomApp()),
-      webSocketServer: new WebSocket.Server({ noServer: true }),
+      webSocketServer: new WebSocket.Server({ noServer: true, maxPayload: 4096 }),
       expirationTimer: null
     };
 
@@ -328,7 +361,15 @@ app.get('/numberofclients', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  res.sendFile(path.join(lobbyDirectory, 'start.html'));
+});
+
+app.get('/multiplayer', (req, res) => {
   res.sendFile(path.join(lobbyDirectory, 'lobby.html'));
+});
+
+app.get('/game', (req, res) => {
+  res.redirect(302, '/index.html?local=1');
 });
 
 app.use(express.static(buildDirectory, staticOptions()));

@@ -41,6 +41,18 @@
         line-height: 1.5;
       }
 
+      .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #a9c7ff;
+        text-decoration: none;
+      }
+
+      .back-link:hover,
+      .back-link:focus-visible {
+        text-decoration: underline;
+      }
+
       button {
         min-height: 42px;
         padding: 0 16px;
@@ -111,6 +123,7 @@
   <body>
     <main>
       <header>
+        <a class="back-link" href="/">← Main menu</a>
         <h1>CWOWD Multiplayer</h1>
         <p class="intro">Create a room, or join an available room. Each room supports two players.</p>
       </header>
