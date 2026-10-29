@@ -2,15 +2,12 @@ const express = require('express');
 const app = express();
 const server = require('http').Server(app);
 const url = require('url');
+const path = require('path');
 
 const WebSocket = require('ws');
 
-if(process.argv.length < 3) {
-  console.log("Usage: node server.js <port>");
-  process.exit();
-}
-
-const port = parseInt(process.argv.slice(2));
+const port = parseInt(process.argv[2] || process.env.PORT || '3000', 10);
+const buildDirectory = path.join(__dirname, 'FightingBuild');
 
 const wss1 = new WebSocket.Server({ noServer: true });
 const wss2 = new WebSocket.Server({ noServer: true });
@@ -62,10 +59,6 @@ server.on('upgrade', function upgrade(request, socket, head) {
   }
 });
 
-app.get("/", function (req, res) {
-    res.redirect("index.html")
-});
-
 app.get("/numberofclients", function (req, res) {
     var numberofclient = wss2.clients.size;
     res.writeHead(200, {'Content-Type': 'text/plain'}); // send response header
@@ -79,7 +72,24 @@ app.use(function(req, res, next) {
   next();
 });
 
-app.use(express.static(__dirname + '/public'));
+app.get("/", function (req, res) {
+  res.sendFile(path.join(buildDirectory, 'index.html'));
+});
+
+app.use(express.static(buildDirectory, {
+  setHeaders: function (res, filePath) {
+    if (filePath.endsWith('.br')) {
+      const originalExtension = path.extname(filePath.slice(0, -3));
+      const contentType = {
+        '.js': 'application/javascript',
+        '.wasm': 'application/wasm'
+      }[originalExtension] || 'application/octet-stream';
+
+      res.setHeader('Content-Encoding', 'br');
+      res.setHeader('Content-Type', contentType);
+    }
+  }
+}));
 
 server.listen(port, () => {
 	console.log(`App listening at http://localhost:${port}`)
