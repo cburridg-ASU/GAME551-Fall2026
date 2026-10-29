@@ -6,7 +6,7 @@ const path = require('path');
 
 const WebSocket = require('ws');
 
-const port = parseInt(process.argv[2] || process.env.PORT || '3000', 10);
+const port = parseInt(process.argv[2] || process.env.PORT || '8080', 10);
 const buildDirectory = path.join(__dirname, 'FightingBuild');
 
 const wss1 = new WebSocket.Server({ noServer: true });
