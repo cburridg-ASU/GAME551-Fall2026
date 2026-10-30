@@ -80,40 +80,9 @@
         text-align: right;
       }
 
-      #fullscreen-button {
-        min-height: 36px;
-        padding: 0 12px;
-        border: 0;
-        border-radius: 4px;
-        color: #111;
-        background: #8ab4f8;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      #leave-room-button {
-        min-height: 36px;
-        padding: 0 12px;
-        border: 1px solid #6f7785;
-        border-radius: 4px;
-        color: #f5f5f5;
-        background: transparent;
-        font-size: 14px;
-        cursor: pointer;
-      }
-
-      #main-menu-button {
-        min-height: 36px;
-        padding: 0 12px;
-        border: 1px solid #6f7785;
-        border-radius: 4px;
-        color: #f5f5f5;
-        background: transparent;
-        font-size: 14px;
-        cursor: pointer;
-      }
-
+      #fullscreen-button,
+      #leave-room-button,
+      #main-menu-button,
       #fan-notice-button,
       #fan-notice-dialog button {
         min-height: 36px;
@@ -124,6 +93,25 @@
         background: #303238;
         font-size: 13px;
         cursor: pointer;
+      }
+
+      #fullscreen-button {
+        border: 0;
+        color: #111;
+        background: #8ab4f8;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      #leave-room-button,
+      #main-menu-button {
+        background: transparent;
+        font-size: 14px;
+      }
+
+      #leave-room-button:disabled {
+        cursor: wait;
+        opacity: .65;
       }
 
       #fan-notice-dialog {
@@ -189,18 +177,18 @@
         width: min(100%, calc(100dvh * 16 / 9));
       }
 
-      @media (max-width: 520px) {
+      @media (max-width: 700px) {
         .game-toolbar {
           gap: 8px;
           padding: 8px;
         }
 
         .game-title {
-          font-size: 14px;
+          display: none;
         }
 
         .game-controls {
-          gap: 8px;
+          gap: 6px;
         }
 
         .room-status {
@@ -211,25 +199,23 @@
         .volume-control {
           min-width: 0;
           gap: 4px;
+          font-size: 12px;
         }
 
         .volume-control input {
-          width: 72px;
+          width: 64px;
         }
 
-        #fullscreen-button {
-          padding: 0 8px;
-          font-size: 12px;
+        #volume-value {
+          min-width: 32px;
         }
 
-        #leave-room-button {
-          padding: 0 8px;
-          font-size: 12px;
-        }
-
-        #main-menu-button {
-          padding: 0 8px;
-          font-size: 12px;
+        #fullscreen-button,
+        #leave-room-button,
+        #main-menu-button,
+        #fan-notice-button {
+          padding-inline: 8px;
+          font-size: 11px;
         }
       }
     </style>
@@ -238,7 +224,7 @@
     <main class="game-shell" id="game-shell">
       <header class="game-toolbar">
         <h1 class="game-title">CWOWD</h1>
-        <span class="room-status" id="room-status" role="status">Connecting to room…</span>
+        <span class="room-status" id="room-status" role="status">Connecting to room...</span>
         <div class="game-controls">
           <label class="volume-control" for="volume-slider">
             <span>Volume</span>
@@ -309,7 +295,6 @@
             } else {
               connect.call(masterGain, destination, 0, input);
             }
-
             return destination;
           }
 
@@ -319,15 +304,13 @@
 
       const gameShell = document.querySelector("#game-shell");
       const fullscreenButton = document.querySelector("#fullscreen-button");
-      const fanNoticeButton = document.querySelector("#fan-notice-button");
       const fanNoticeDialog = document.querySelector("#fan-notice-dialog");
-      const fanNoticeClose = document.querySelector("#fan-notice-close");
 
-      fanNoticeButton.addEventListener("click", () => {
+      document.querySelector("#fan-notice-button").addEventListener("click", () => {
         fanNoticeDialog.showModal();
       });
 
-      fanNoticeClose.addEventListener("click", () => {
+      document.querySelector("#fan-notice-close").addEventListener("click", () => {
         fanNoticeDialog.close();
       });
 
@@ -347,25 +330,16 @@
         });
       });
 
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && document.fullscreenElement === gameShell) {
-          event.preventDefault();
-          document.exitFullscreen().catch((error) => {
-            console.error("Could not exit fullscreen mode:", error);
-          });
-        }
-      });
-
       document.addEventListener("fullscreenchange", updateFullscreenButton);
-    </script>
-    <script>
+
       const roomStatus = document.querySelector("#room-status");
       const leaveRoomButton = document.querySelector("#leave-room-button");
       const mainMenuButton = document.querySelector("#main-menu-button");
       const roomParameters = new URLSearchParams(window.location.search);
       const seatToken = roomParameters.get("seat");
+      const localMode = roomParameters.get("local") === "1";
       const lobbyUrl = new URL(window.location.href);
-      lobbyUrl.port = roomParameters.get("lobbyPort") || "8080";
+      lobbyUrl.port = roomParameters.get("lobbyPort") || (localMode ? window.location.port : "8080");
       lobbyUrl.pathname = "/";
       lobbyUrl.search = "";
       lobbyUrl.hash = "";
@@ -376,38 +350,39 @@
       let leavingRoom = false;
       let gameStarted = false;
       const roomInputListeners = new Set();
-      const localMode = roomParameters.get("local") === "1";
 
       function updateRoomStatus(message) {
-        roomStatus.textContent = `Room ${assignedRoomCode} · Player ${assignedPlayerNumber} · ${message}`;
+        roomStatus.textContent = `Room ${assignedRoomCode} - Player ${assignedPlayerNumber} - ${message}`;
       }
 
-      window.CWOWDRoom = {
-        getPlayerNumber() {
-          return assignedPlayerNumber;
-        },
-        sendInput(input) {
-          if (
-            !input ||
-            typeof input !== "object" ||
-            Array.isArray(input) ||
-            !roomSocket ||
-            roomSocket.readyState !== WebSocket.OPEN
-          ) {
-            return false;
-          }
+      if (!localMode) {
+        window.CWOWDRoom = {
+          getPlayerNumber() {
+            return assignedPlayerNumber;
+          },
+          sendInput(input) {
+            if (
+              !input ||
+              typeof input !== "object" ||
+              Array.isArray(input) ||
+              !roomSocket ||
+              roomSocket.readyState !== WebSocket.OPEN
+            ) {
+              return false;
+            }
 
-          roomSocket.send(JSON.stringify({ type: "input", input }));
-          return true;
-        },
-        onInput(listener) {
-          if (typeof listener !== "function") {
-            throw new TypeError("Room input listener must be a function.");
+            roomSocket.send(JSON.stringify({ type: "input", input }));
+            return true;
+          },
+          onInput(listener) {
+            if (typeof listener !== "function") {
+              throw new TypeError("Room input listener must be a function.");
+            }
+            roomInputListeners.add(listener);
+            return () => roomInputListeners.delete(listener);
           }
-          roomInputListeners.add(listener);
-          return () => roomInputListeners.delete(listener);
-        }
-      };
+        };
+      }
 
       function returnToLobby() {
         if (leavingRoom) {
@@ -447,7 +422,7 @@
 
       leaveRoomButton.addEventListener("click", () => {
         leaveRoomButton.disabled = true;
-        roomStatus.textContent = "Closing room and returning to lobby…";
+        roomStatus.textContent = "Closing room and returning to lobby...";
         if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
           roomSocket.send(JSON.stringify({ type: "leave" }));
           window.setTimeout(returnToLobby, 1500);
@@ -457,7 +432,7 @@
       });
 
       mainMenuButton.addEventListener("click", () => {
-        window.location.assign("/");
+        window.location.assign(lobbyUrl.toString());
       });
 
       if (localMode) {
@@ -487,20 +462,20 @@
             startGame();
           } else if (message.type === "playerJoined") {
             updateRoomStatus(message.playerCount === 2
-              ? "both players connected · controls are not synced in this build"
+              ? "both players connected"
               : "waiting for the other player");
           } else if (message.type === "remoteInput") {
             roomInputListeners.forEach((listener) => {
               listener(message.playerNumber, message.input);
             });
           } else if (message.type === "roomClosed") {
-            roomStatus.textContent = "Room closed. Returning to lobby…";
+            roomStatus.textContent = "Room closed. Returning to lobby...";
             returnToLobby();
           }
         });
 
         roomSocket.addEventListener("error", () => {
-          roomStatus.textContent = "Could not connect to the room. Returning to lobby…";
+          roomStatus.textContent = "Could not connect to the room. Returning to lobby...";
         });
 
         roomSocket.addEventListener("close", () => {

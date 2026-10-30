@@ -59,27 +59,15 @@ CWOWDRoom.onInput((playerNumber, input) => {
 
 `sendInput` sends the local player's controls to the other client. The receiver
 gets the sender's assigned player number with the input. Messages are limited
-to 2 KB and 120 per second per player. This transport does **not** make the
-game react to remote controls by itself; the Unity project must read the local
-controls, call the API, and apply remote controls to the correct character.
+to 2 KB and 120 per second per player. The updated WebGL framework includes
+Unity `OnlineBridge` hooks for checking bridge availability, reading the
+assigned player number, sending local input, and polling remote input. The
+browser wrapper provides the `CWOWDRoom` API those hooks call. In local mode,
+the room API is intentionally absent so the Unity bridge reports offline.
 
-To finish the WebGL integration:
-
-1. Open the Unity project that produces this build and add a persistent
-   `NetworkInputBridge` GameObject/script.
-2. In a WebGL `.jslib` plugin, call `window.CWOWDRoom.sendInput(...)` for
-   local keyboard/controller state and subscribe with
-   `window.CWOWDRoom.onInput(...)` for remote input. Pass messages between
-   the plugin and C# with Unity's `SendMessage` or a supported callback
-   mechanism.
-3. Have the bridge query `getPlayerNumber()` and assign local and remote
-   controls to the correct player objects. Keep the existing USB/controller
-   input local to each player's browser; transmit normalized button/axis
-   state, not hardware device objects.
-4. Test disconnects, reconnects, simultaneous controls, and both keyboard and
-   USB controllers. Then rebuild WebGL and replace `FightingBuild`.
-
-The Unity project source is not in this repository, so the bridge cannot be
-completed or compiled here. Until that build-side work is done, both browsers
-load their own game instance and remote input messages are not applied to
-gameplay.
+The compiled build contains these integration hooks, but this repository does
+not include the Unity project source. Verify in-game that the Unity controller
+uses the received state for the opponent, assigns the correct player controls,
+and handles disconnects, reconnects, simultaneous input, keyboard, and USB
+controllers. Having the bridge and room transport present does not by itself
+prove that every control mapping behaves as intended.
