@@ -25,7 +25,7 @@
         min-height: 100vh;
         min-height: 100svh;
         margin: 0;
-        padding: 36px 18px;
+        padding: 24px 18px;
         color: #f4e4bc;
         background: #17120d url("/WebAssets/WebBackground.png") center / cover fixed;
         font-family: "Friz Body", Georgia, serif;
@@ -47,14 +47,14 @@
       }
 
       .site-header {
-        margin-bottom: 26px;
+        margin-bottom: 18px;
         text-align: center;
       }
 
       .game-logo {
         display: block;
-        width: min(360px, 75vw);
-        max-height: 160px;
+        width: min(300px, 68vw);
+        max-height: 125px;
         object-fit: contain;
         margin: 0 auto 12px;
         filter: drop-shadow(0 6px 16px rgb(0 0 0 / 65%));
@@ -74,16 +74,37 @@
       }
 
       .panel {
-        margin-top: 18px;
-        padding: 26px;
-        border: 14px solid transparent;
-        border-image: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") 14 48 fill / 14px 28px stretch;
-        background-color: rgb(22 17 12 / 91%);
+        margin-top: 14px;
+        padding: 22px 24px;
+        border: 1px solid rgb(224 190 117 / 65%);
+        background:
+          linear-gradient(180deg, rgb(20 15 10 / 25%), rgb(12 9 7 / 82%)),
+          url("/WebAssets/MenusItems/ui-auctionframe-browse-top.png") center / 100% 100% no-repeat,
+          rgb(22 17 12 / 94%);
         box-shadow: 0 12px 30px rgb(0 0 0 / 35%);
       }
 
+      .create-panel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        min-height: 104px;
+      }
+
       .panel h2 {
+        width: max-content;
+        max-width: 100%;
+        padding-bottom: 8px;
         font-size: 25px;
+      }
+
+      .panel h2::after {
+        display: block;
+        height: 6px;
+        margin-top: 6px;
+        background: url("/WebAssets/MenusItems/ui-auctionframe-filterbg.png") left center / 100% 14px no-repeat;
+        content: "";
       }
 
       .intro {
@@ -111,12 +132,16 @@
       }
 
       button {
+        display: inline-flex;
+        width: 184px;
+        max-width: 100%;
         min-height: 48px;
-        padding: 8px 26px;
-        border: 10px solid transparent;
-        border-image: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") 14 48 fill / 10px 24px stretch;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 18px;
+        border: 0;
+        background: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") center / 100% 100% no-repeat;
         color: #fff0c8;
-        background-color: #3a2917;
         font-family: "Friz Quadrata", Georgia, serif;
         font-size: 15px;
         text-shadow: 0 1px 3px #090706;
@@ -153,12 +178,27 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        padding: 12px 14px;
+        min-height: 64px;
+        padding: 10px 14px;
         border: 1px solid rgb(196 155 79 / 48%);
-        background: linear-gradient(110deg, rgb(78 54 28 / 72%), rgb(34 25 17 / 88%));
+        background:
+          linear-gradient(90deg, rgb(20 15 10 / 18%), rgb(12 9 7 / 72%)),
+          url("/WebAssets/MenusItems/ui-auctionframe-filterbg.png") center / 100% 100% no-repeat,
+          linear-gradient(110deg, rgb(78 54 28 / 72%), rgb(34 25 17 / 88%));
+      }
+
+      .room-item button {
+        width: 136px;
+        min-height: 42px;
+        padding-inline: 12px;
+        font-size: 13px;
       }
 
       .room-code {
+        display: inline-block;
+        min-width: 102px;
+        padding: 6px 12px;
+        background: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") center / 100% 100% no-repeat;
         font-size: 18px;
         font-weight: 700;
         color: #f3d37e;
@@ -183,11 +223,18 @@
         h1 { font-size: 28px; }
 
         .panel {
-          padding: 20px 16px;
+          padding: 18px 14px;
+        }
+
+        .create-panel {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+          min-height: 0;
         }
 
         .room-item {
-          align-items: flex-start;
+          align-items: center;
           padding: 10px;
         }
 
@@ -198,9 +245,16 @@
         .room-meta { font-size: 11px; }
 
         button {
+          width: 154px;
           min-height: 42px;
           padding-inline: 16px;
           font-size: 13px;
+        }
+
+        .room-item button {
+          width: 112px;
+          padding-inline: 8px;
+          font-size: 11px;
         }
       }
     </style>
@@ -214,7 +268,7 @@
         <p class="intro">Create a room, or join an available room. Each room supports two players.</p>
       </header>
 
-      <section class="panel" aria-labelledby="create-heading">
+      <section class="panel create-panel" aria-labelledby="create-heading">
         <h2 id="create-heading">Create a room</h2>
         <button id="create-room" type="button">Create room</button>
       </section>

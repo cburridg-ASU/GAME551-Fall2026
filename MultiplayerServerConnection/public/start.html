@@ -28,7 +28,7 @@
         min-height: 100svh;
         align-items: center;
         justify-content: center;
-        padding: 36px 20px;
+        padding: 24px 20px;
         color: #f4e4bc;
         background: #17120d url("/WebAssets/WebBackground.png") center 42% / cover fixed;
         font-family: "Friz Body", Georgia, serif;
@@ -49,13 +49,13 @@
       }
 
       header {
-        margin-bottom: 28px;
+        margin-bottom: 20px;
       }
 
       .game-logo {
         display: block;
-        width: min(620px, 90vw);
-        max-height: 300px;
+        width: min(560px, 88vw);
+        max-height: 250px;
         object-fit: contain;
         margin: 0 auto;
         filter: drop-shadow(0 10px 24px rgb(0 0 0 / 65%));
@@ -71,22 +71,25 @@
       .mode-list {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 24px;
+        gap: 20px;
       }
 
       .mode-card {
         display: flex;
-        min-height: 222px;
+        min-height: 198px;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 30px 34px;
-        border: 14px solid transparent;
-        border-image: url("/WebAssets/MenusItems/ui-auctionitemnameframe.png") 14 48 fill / 14px 28px stretch;
+        padding: 28px 34px;
+        border: 1px solid rgb(224 190 117 / 65%);
         color: #f4e4bc;
-        background: rgb(22 17 12 / 88%);
+        background:
+          linear-gradient(180deg, rgb(20 15 10 / 25%), rgb(12 9 7 / 82%)),
+          url("/WebAssets/MenusItems/ui-auctionframe-browse-top.png") center / 100% 100% no-repeat,
+          rgb(22 17 12 / 94%);
         text-shadow: 0 2px 4px #090706;
         text-decoration: none;
+        box-shadow: inset 0 0 0 3px rgb(12 9 7 / 72%), 0 12px 30px rgb(0 0 0 / 40%);
         transition: transform 160ms ease, filter 160ms ease;
       }
 
@@ -101,8 +104,12 @@
         outline-offset: 5px;
       }
 
+      .mode-card:active {
+        transform: translateY(0);
+      }
+
       .mode-kicker {
-        margin: 0 0 7px;
+        margin: 9px 0 7px;
         color: #dfbd70;
         font-size: 12px;
         text-transform: uppercase;
@@ -132,6 +139,11 @@
       }
 
       @media (max-width: 640px) {
+        body {
+          align-items: flex-start;
+          padding: 20px 14px;
+        }
+
         .mode-list {
           grid-template-columns: 1fr;
           gap: 14px;
@@ -139,8 +151,10 @@
 
         .mode-card {
           min-height: 170px;
-          padding: 22px;
+          padding: 18px 22px;
         }
+
+        .mode-kicker { margin-top: 8px; }
 
         .game-logo {
           max-height: 220px;
@@ -152,9 +166,11 @@
       }
 
       @media (max-height: 760px) and (min-width: 641px) {
-        body { padding-block: 18px; }
-        .game-logo { max-height: 220px; }
-        .mode-card { min-height: 180px; }
+        body { padding-block: 14px; }
+        header { margin-bottom: 12px; }
+        .game-logo { max-height: 205px; }
+        .mode-card { min-height: 170px; padding-block: 20px; }
+        .mode-description { margin-block: 6px 10px; }
       }
     </style>
   </head>
