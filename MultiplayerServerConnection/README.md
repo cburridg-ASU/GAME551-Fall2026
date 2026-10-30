@@ -7,42 +7,36 @@ npm install
 npm start
 ```
 
-The lobby listens on `PORT` (default `8080`). Each room gets a dedicated TCP
-port from `ROOM_PORT_START` (default `8100`) through the configured count
-(default `ROOM_PORT_COUNT=20`, ending at `8119`).
+The lobby and all multiplayer rooms share one listener on `PORT` (default
+`8080`). Room pages and WebSocket traffic are routed by seat token on that same
+port. `MAX_ROOMS` (default `20`) sets the maximum number of active rooms.
 
 ## AWS network setup
 
-The lobby works on port `8080`, but each player is redirected to a separate
-room port. The EC2 security group must allow inbound TCP `8080` **and**
-`8100-8119`. If the instance uses UFW, allow those ports there too:
+The EC2 security group only needs inbound TCP `8080` (or the configured
+`PORT`). If the instance uses UFW, allow that port too:
 
 ```bash
 sudo ufw allow 8080/tcp
-sudo ufw allow 8100:8119/tcp
 sudo ufw status
 ```
 
 Only allow these from `0.0.0.0/0` if the game should be public; otherwise use
-the players' source IP ranges. Check any network ACLs as well. If the port
-range is changed with `ROOM_PORT_START` or `ROOM_PORT_COUNT`, update both the
-security group and host firewall to match.
+the players' source IP ranges. Check any network ACLs as well. If `PORT` is
+changed, update both the security group and host firewall to match. If a
+reverse proxy is in front of Node, it must forward WebSocket upgrades for
+`/room` as well as normal HTTP requests.
 
 To diagnose a room that times out:
 
-1. On the EC2 instance, confirm the server log says `Room <code> created on port <port>`.
-2. On the instance, run `sudo ss -ltnp` and confirm Node is listening on that
-   room port on `0.0.0.0`, not just `127.0.0.1`.
-3. From a different computer, run `nc -vz ec2-107-23-134-213.compute-1.amazonaws.com <room-port>`.
-   A timeout usually means the security group, network ACL, or host firewall is
-   dropping the connection. `ECONNREFUSED` usually means nothing is listening
-   on that port or the room has closed.
-4. Confirm players use the public hostname and the exact port from the room
-   URL, not `localhost`.
+1. On the EC2 instance, confirm the server log says `Room <code> created`.
+2. Confirm Node is listening on `0.0.0.0:8080` with `sudo ss -ltnp`.
+3. Check `curl -I http://127.0.0.1:8080/` locally and test the public lobby.
+   The same host and port carry game pages and room WebSockets.
 
-The room ports are released when a player leaves or disconnects. An unfilled
-room expires after five minutes. Room state is in memory, so restarting the
-Node server closes every active room.
+Rooms do not open or reserve separate TCP ports. An unfilled room expires
+after five minutes. Room state is in memory, so restarting the Node server
+closes every active room.
 
 ## Unity WebGL input integration
 
